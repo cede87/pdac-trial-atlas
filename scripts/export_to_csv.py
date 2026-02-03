@@ -5,7 +5,7 @@ validation, and downstream analysis.
 
 import csv
 from db.session import SessionLocal
-from db.models import ClinicalTrial
+from db.models import ClinicalTrial, ClinicalTrialDetails
 
 
 OUTPUT_FILE = "pdac_trials_export.csv"
@@ -14,11 +14,7 @@ OUTPUT_FILE = "pdac_trials_export.csv"
 def run():
     db = SessionLocal()
 
-    trials = (
-        db.query(ClinicalTrial)
-        .order_by(ClinicalTrial.nct_id)
-        .all()
-    )
+    trials = db.query(ClinicalTrial).order_by(ClinicalTrial.nct_id).all()
 
     with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -34,16 +30,30 @@ def run():
             "phase",
             "status",
             "sponsor",
+            "admission_date",
+            "last_update_date",
+            "has_results",
+            "results_last_update",
+            "conditions",
+            "interventions",
+            "intervention_types",
+            "primary_outcomes",
+            "secondary_outcomes",
+            "inclusion_criteria",
+            "exclusion_criteria",
+            "locations",
+            "brief_summary",
+            "detailed_description",
             "therapeutic_class",
             "focus_tags",
             "pdac_match_reason",
-            "noise_flags",
         ])
 
         # --------------------------------------------------
         # Rows
         # --------------------------------------------------
         for t in trials:
+            d = db.get(ClinicalTrialDetails, t.nct_id)
             writer.writerow([
                 t.nct_id,
                 t.title,
@@ -52,10 +62,23 @@ def run():
                 t.phase,
                 t.status,
                 t.sponsor,
+                t.admission_date,
+                t.last_update_date,
+                t.has_results,
+                t.results_last_update,
+                (d.conditions if d else "NA"),
+                (d.interventions if d else "NA"),
+                t.intervention_types,
+                (d.primary_outcomes if d else "NA"),
+                (d.secondary_outcomes if d else "NA"),
+                (d.inclusion_criteria if d else "NA"),
+                (d.exclusion_criteria if d else "NA"),
+                (d.locations if d else "NA"),
+                (d.brief_summary if d else "NA"),
+                (d.detailed_description if d else "NA"),
                 t.therapeutic_class,
                 t.focus_tags,
                 t.pdac_match_reason,
-                t.noise_flags,
             ])
 
     db.close()

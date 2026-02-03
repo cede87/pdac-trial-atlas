@@ -1,6 +1,11 @@
 import unittest
 
-from ingest.clinicaltrials import build_classification_text, classify_study
+from ingest.clinicaltrials import (
+    _extract_interventions,
+    _extract_outcomes,
+    build_classification_text,
+    classify_study,
+)
 
 
 class ClassificationTests(unittest.TestCase):
@@ -60,6 +65,58 @@ class ClassificationTests(unittest.TestCase):
             "Prospective follow-up of pancreatic cancer outcomes",
         )
         self.assertEqual(c["therapeutic_class"], "observational_non_therapeutic")
+
+    def test_interventional_without_signal_defaults_context(self):
+        c = classify_study(
+            "INTERVENTIONAL",
+            "Investigator initiated phase II study in pancreatic cancer",
+        )
+        self.assertEqual(c["therapeutic_class"], "context_classified")
+
+    def test_locoregional_therapy_is_detected(self):
+        c = classify_study(
+            "INTERVENTIONAL",
+            "Electroporation therapy with bleomycin in pancreatic cancer",
+        )
+        self.assertEqual(c["therapeutic_class"], "locoregional_therapy")
+
+    def test_focus_tags_are_more_specific(self):
+        c = classify_study(
+            "OBSERVATIONAL",
+            "High-risk surveillance with MRI and ctDNA liquid biopsy for hereditary pancreatic cancer",
+        )
+        self.assertIn("early_detection", c["focus"])
+        self.assertIn("imaging_diagnostics", c["focus"])
+        self.assertIn("liquid_biopsy", c["focus"])
+        self.assertIn("hereditary_risk", c["focus"])
+
+    def test_extract_interventions_returns_names_and_types(self):
+        arms_mod = {
+            "interventions": [
+                {"type": "DRUG", "name": "Gemcitabine"},
+                {"type": "PROCEDURE", "name": "Whipple"},
+                {"type": "DRUG", "name": "Nab-paclitaxel"},
+            ]
+        }
+        interventions, intervention_types = _extract_interventions(arms_mod)
+        self.assertIn("DRUG: Gemcitabine", interventions)
+        self.assertIn("PROCEDURE: Whipple", interventions)
+        self.assertEqual(intervention_types, "DRUG, PROCEDURE")
+
+    def test_extract_outcomes_formats_measure_timeframe_and_description(self):
+        outcomes_mod = {
+            "primaryOutcomes": [
+                {
+                    "measure": "Overall Survival",
+                    "timeFrame": "24 months",
+                    "description": "OS from randomization",
+                }
+            ]
+        }
+        primary = _extract_outcomes(outcomes_mod, "primaryOutcomes")
+        self.assertIn("Overall Survival", primary)
+        self.assertIn("timeframe=24 months", primary)
+        self.assertIn("OS from randomization", primary)
 
 
 if __name__ == "__main__":

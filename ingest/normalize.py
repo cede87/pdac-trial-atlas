@@ -37,7 +37,6 @@ def normalize_trial(study: dict) -> dict:
         # Classification (already inferred upstream)
         "therapeutic_class": study.get("therapeutic_class"),
         "focus_tags": study.get("focus_tags"),
-        "noise_flags": study.get("noise_flags"),
 
         # Dates (optional, may be null if missing)
         "start_date": parse_date(study.get("start_date"))
