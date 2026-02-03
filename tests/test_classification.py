@@ -5,6 +5,7 @@ from ingest.clinicaltrials import (
     _extract_outcomes,
     build_classification_text,
     classify_study,
+    pdac_match_reason,
 )
 
 
@@ -117,6 +118,10 @@ class ClassificationTests(unittest.TestCase):
         self.assertIn("Overall Survival", primary)
         self.assertIn("timeframe=24 months", primary)
         self.assertIn("OS from randomization", primary)
+
+    def test_pdac_match_reason_handles_ductal_pancreas_phrase(self):
+        reason = pdac_match_reason("Ductal adenocarcinoma of the pancreas pilot trial")
+        self.assertEqual(reason, "explicit_pdac")
 
 
 if __name__ == "__main__":

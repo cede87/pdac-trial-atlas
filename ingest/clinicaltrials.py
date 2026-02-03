@@ -200,6 +200,8 @@ def pdac_match_reason(title: str) -> str:
 
     if "pancreatic ductal adenocarcinoma" in t:
         return "explicit_pdac"
+    if "ductal adenocarcinoma of the pancreas" in t:
+        return "explicit_pdac"
     if "pdac" in t:
         return "pdac_acronym"
     if "pancreas adenocarcinoma" in t or "pancreatic adenocarcinoma" in t:

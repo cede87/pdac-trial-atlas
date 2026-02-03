@@ -3,7 +3,7 @@ An open, evidence-graded atlas of pancreatic ductal adenocarcinoma (PDAC) clinic
 
 ## Version
 
-Current release: **v1.1**
+Current release: **v1.2**
 
 ## Local dashboard
 
@@ -18,9 +18,20 @@ The dashboard runs 100% local and reads from `pdac_trials.db`.
 
 ## Testing
 
-Run the test suite locally:
+Run unit/regression tests:
 
 `PYTHONPATH=. .venv/bin/python -m unittest discover -s tests -v`
+
+Run dataset QA (cross-field integrity + tag/match consistency):
+
+`PYTHONPATH=. .venv/bin/python scripts/qa_report.py --strict --limit 20`
+
+Recommended full local validation flow:
+
+1. `PYTHONPATH=. .venv/bin/python scripts/ingest_clinicaltrials.py`
+2. `PYTHONPATH=. .venv/bin/python -m unittest discover -s tests -v`
+3. `PYTHONPATH=. .venv/bin/python scripts/qa_report.py --strict --limit 20`
+4. `PYTHONPATH=. .venv/bin/python scripts/export_to_csv.py`
 
 ## Storage layout
 
@@ -47,7 +58,7 @@ Below is what each field stores, expected values/patterns, and one quick example
 | `results_last_update` | Date linked to results posting/submission | `YYYY-MM-DD` or `NA` | `2023-06-05` |
 | `conditions` | Conditions list | Pipe-separated text or `NA` | `Pancreatic Cancer \| Exocrine Pancreatic Insufficiency` |
 | `interventions` | Intervention entries with type and name | Pipe-separated `TYPE: name` or `NA` | `DRUG: Pancrelipase \| DRUG: Placebo` |
-| `intervention_types` | **Separated intervention type(s)** | Comma-separated types or `NA` | `DRUG, PROCEDURE` |
+| `intervention_types` | **Separated intervention type(s)** | Comma-separated source types (`BEHAVIORAL`, `BIOLOGICAL`, `COMBINATION_PRODUCT`, `DEVICE`, `DIAGNOSTIC_TEST`, `DIETARY_SUPPLEMENT`, `DRUG`, `GENETIC`, `OTHER`, `PROCEDURE`, `RADIATION`) or `NA` | `DRUG, PROCEDURE` |
 | `primary_outcomes` | Primary outcome definitions | Pipe-separated text or `NA` | `Change in Stool Fat ... ; timeframe=Week 1` |
 | `secondary_outcomes` | Secondary outcome definitions | Pipe-separated text or `NA` | `Progression-free survival ...` |
 | `inclusion_criteria` | Inclusion criteria text | Free text / `NA` | `Age >= 18 ...` |

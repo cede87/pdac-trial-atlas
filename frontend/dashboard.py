@@ -8,6 +8,7 @@ Run:
 from pathlib import Path
 import math
 import sqlite3
+import shlex
 
 import altair as alt
 import pandas as pd
@@ -30,6 +31,12 @@ def split_tags(tags: str) -> list[str]:
     return [t.strip() for t in tags.split(",") if t.strip()]
 
 
+def split_csv_values(value: str) -> list[str]:
+    if not value:
+        return []
+    return [item.strip() for item in str(value).split(",") if item.strip() and item.strip() != "NA"]
+
+
 def _year_from_date(value: str) -> str:
     if not value:
         return ""
@@ -37,6 +44,55 @@ def _year_from_date(value: str) -> str:
     if len(value) >= 4 and value[:4].isdigit():
         return value[:4]
     return ""
+
+
+def _build_query_mask(df: pd.DataFrame, query: str) -> pd.Series:
+    """
+    Lightweight boolean query:
+    - OR broadens results
+    - AND restricts results
+    - quoted phrases are supported: "after progression"
+    Example: kras AND metastatic OR "phase 3"
+    """
+    query = (query or "").strip()
+    if not query:
+        return pd.Series(True, index=df.index)
+
+    normalized = query.replace(",", " OR ")
+    try:
+        tokens = shlex.split(normalized)
+    except Exception:
+        tokens = normalized.split()
+
+    # Build OR groups containing AND terms.
+    groups: list[list[str]] = [[]]
+    for token in tokens:
+        upper = token.upper()
+        if upper == "OR":
+            if groups[-1]:
+                groups.append([])
+        elif upper == "AND":
+            continue
+        else:
+            groups[-1].append(token)
+
+    groups = [g for g in groups if g]
+    if not groups:
+        return pd.Series(True, index=df.index)
+
+    row_text = df.fillna("").astype(str).agg(" | ".join, axis=1)
+    final_mask = pd.Series(False, index=df.index)
+    for and_terms in groups:
+        group_mask = pd.Series(True, index=df.index)
+        for term in and_terms:
+            group_mask = group_mask & row_text.str.contains(
+                term,
+                case=False,
+                regex=False,
+                na=False,
+            )
+        final_mask = final_mask | group_mask
+    return final_mask
 
 
 def build_display_df(filtered: pd.DataFrame) -> pd.DataFrame:
@@ -212,7 +268,13 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     sponsor_options = sorted([x for x in df["sponsor"].unique() if x])
     selected_sponsors = st.sidebar.multiselect("Sponsor", sponsor_options)
 
-    intervention_type_options = sorted([x for x in df["intervention_types"].unique() if x])
+    intervention_type_options = sorted(
+        {
+            item
+            for raw in df["intervention_types"].tolist()
+            for item in split_csv_values(raw)
+        }
+    )
     selected_intervention_types = st.sidebar.multiselect(
         "Intervention type",
         intervention_type_options,
@@ -232,15 +294,7 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
 
     out = df.copy()
     if query:
-        # Keep multi-word phrases intact (e.g., "after progression")
-        # and only split by commas.
-        terms = [t.strip() for t in query.split(",") if t.strip()]
-        if terms:
-            row_text = out.fillna("").astype(str).agg(" | ".join, axis=1)
-            mask = pd.Series(False, index=out.index)
-            for term in terms:
-                mask = mask | row_text.str.contains(term, case=False, regex=False, na=False)
-            out = out[mask]
+        out = out[_build_query_mask(out, query)]
     if selected_classes:
         out = out[out["therapeutic_class"].isin(selected_classes)]
     if selected_designs:
@@ -254,7 +308,12 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     if selected_sponsors:
         out = out[out["sponsor"].isin(selected_sponsors)]
     if selected_intervention_types:
-        out = out[out["intervention_types"].isin(selected_intervention_types)]
+        selected_set = set(selected_intervention_types)
+        out = out[
+            out["intervention_types"].apply(
+                lambda raw: bool(selected_set.intersection(split_csv_values(raw)))
+            )
+        ]
     if selected_results:
         out = out[out["has_results"].isin(selected_results)]
     if selected_admission_years:
@@ -269,9 +328,10 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
         ]
 
     st.sidebar.markdown("---")
+    st.sidebar.markdown("<div style='height:0.35rem;'></div>", unsafe_allow_html=True)
     st.sidebar.markdown(
         "<div style='display:flex; gap:0.25rem; align-items:center;'>"
-        "<span class='sidebar-version-footer'>v1.1</span>"
+        "<span class='sidebar-version-footer'>v1.2</span>"
         "<span class='sidebar-version-footer'>MIT License</span>"
         "</div>",
         unsafe_allow_html=True,
@@ -359,34 +419,41 @@ def render_explorer(filtered: pd.DataFrame):
     ]
     default_columns = [c for c in default_columns if c in all_columns]
     st.markdown("<div style='height:0.35rem;'></div>", unsafe_allow_html=True)
-    selected_columns = st.multiselect(
-        "Columns to show",
-        options=all_columns,
-        default=default_columns,
-    )
+    cols_pick_col, export_col = st.columns([8.8, 1.2], gap="small")
+    with cols_pick_col:
+        selected_columns = st.multiselect(
+            "Columns to show",
+            options=all_columns,
+            default=default_columns,
+        )
     if not selected_columns:
         selected_columns = default_columns
     if "Trial ID" not in selected_columns:
         selected_columns = ["Trial ID"] + selected_columns
     display_df = full_display_df[selected_columns].copy()
-
-    query_col, export_col = st.columns([8.9, 1.1], gap="small")
-    with query_col:
-        st.markdown("<div style='height:0.25rem;'></div>", unsafe_allow_html=True)
-        st.text_input(
-            "Global text match (comma-separated)",
-            key="global_query",
-            label_visibility="collapsed",
-            placeholder="Global text match (comma-separated)",
-        )
     with export_col:
-        st.markdown("<div style='height:0.25rem;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:1.95rem;'></div>", unsafe_allow_html=True)
         st.download_button(
             "Export filtered CSV",
             data=display_df.to_csv(index=False).encode("utf-8"),
             file_name="pdac_trials_filtered.csv",
             mime="text/csv",
             width="stretch",
+            key="table_export_filtered_csv",
+        )
+
+    query_col = st.columns([1])[0]
+    with query_col:
+        st.markdown("<div style='height:0.25rem;'></div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='query-hint'>Query mode: use <code>AND</code> to restrict, <code>OR</code> to broaden.</div>",
+            unsafe_allow_html=True,
+        )
+        st.text_input(
+            "Global text match (AND / OR)",
+            key="global_query",
+            label_visibility="collapsed",
+            placeholder='Examples: kras AND metastatic OR "phase 3"',
         )
     st.markdown("<div style='margin-bottom:-0.75rem;'></div>", unsafe_allow_html=True)
 
@@ -772,14 +839,23 @@ def render_analytics(filtered: pd.DataFrame):
     st.markdown("")
     l3, r3 = st.columns([1, 1])
     with l3:
-        intervention_df = (
+        intervention_series = (
             filtered["intervention_types"]
-            .replace("", "NA")
-            .value_counts()
-            .head(12)
-            .rename_axis("intervention_types")
-            .reset_index(name="count")
+            .apply(split_csv_values)
+            .explode()
+            .dropna()
         )
+        if intervention_series.empty:
+            intervention_df = pd.DataFrame(
+                {"intervention_types": ["NA"], "count": [0]}
+            )
+        else:
+            intervention_df = (
+                intervention_series.value_counts()
+                .head(12)
+                .rename_axis("intervention_types")
+                .reset_index(name="count")
+            )
         intervention_chart = (
             alt.Chart(intervention_df)
             .mark_bar()
@@ -855,6 +931,13 @@ def main():
             "sidebar_bg": "#0f172a",
             "sidebar_border": "#334155",
             "sidebar_input_bg": "#111827",
+            "toggle_off_bg": "#334155",
+            "multiselect_bg": "#0f172a",
+            "multiselect_text": "#e5e7eb",
+            "multiselect_tag_bg": "#1f2937",
+            "multiselect_tag_text": "#e5e7eb",
+            "multiselect_menu_bg": "#0f172a",
+            "multiselect_clear_icon": "#cbd5e1",
         }
     else:
         colors = {
@@ -881,6 +964,13 @@ def main():
             "sidebar_bg": "#f8fafc",
             "sidebar_border": "#dbe3ee",
             "sidebar_input_bg": "#edf2f7",
+            "toggle_off_bg": "#111827",
+            "multiselect_bg": "#eef2f7",
+            "multiselect_text": "#1f2937",
+            "multiselect_tag_bg": "#e2e8f0",
+            "multiselect_tag_text": "#1f2937",
+            "multiselect_menu_bg": "#ffffff",
+            "multiselect_clear_icon": "#64748b",
         }
 
     st.markdown(
@@ -913,6 +1003,7 @@ def main():
             [data-testid="stSidebar"] input,
             [data-testid="stSidebar"] textarea {{
                 color: {colors["heading"]} !important;
+                caret-color: {colors["heading"]} !important;
                 box-shadow: none !important;
                 outline: none !important;
             }}
@@ -934,10 +1025,60 @@ def main():
             }}
             [data-testid="stAppViewContainer"] [data-testid="stTextInput"] input {{
                 color: {colors["heading"]} !important;
+                caret-color: {colors["heading"]} !important;
             }}
             [data-testid="stAppViewContainer"] [data-testid="stTextInput"] input::placeholder {{
                 color: {colors["label"]} !important;
                 opacity: 1 !important;
+            }}
+            .query-hint {{
+                color: {colors["label"]};
+                font-size: 0.78rem;
+                margin: 0.1rem 0 0.2rem 0;
+            }}
+            .query-hint code {{
+                color: {colors["heading"]};
+                background: {colors["tab_bg"]};
+                border: 1px solid {colors["tab_border"]};
+                border-radius: 6px;
+                padding: 0 0.25rem;
+            }}
+            [data-testid="stToggle"] label,
+            [data-testid="stToggle"] span {{
+                color: {colors["heading"]} !important;
+            }}
+            [data-testid="stToggle"] [role="switch"] {{
+                border: 1px solid {colors["card_border"]} !important;
+                background: {colors["toggle_off_bg"]} !important;
+            }}
+            [data-testid="stToggle"] [role="switch"]:hover,
+            [data-testid="stToggle"] [role="switch"]:focus {{
+                border: 1px solid {colors["card_border"]} !important;
+                background: {colors["toggle_off_bg"]} !important;
+                box-shadow: none !important;
+            }}
+            [data-testid="stToggle"] [role="switch"][aria-checked="true"] {{
+                background: #0f766e !important;
+                border: 1px solid #0f766e !important;
+            }}
+            [data-testid="stToggle"] [role="switch"][aria-checked="true"]:hover,
+            [data-testid="stToggle"] [role="switch"][aria-checked="true"]:focus {{
+                background: #0f766e !important;
+                border: 1px solid #0f766e !important;
+                box-shadow: none !important;
+            }}
+            [data-testid="stToggle"] [data-baseweb="toggle"] {{
+                background: {colors["toggle_off_bg"]} !important;
+                border: 1px solid {colors["card_border"]} !important;
+            }}
+            [data-testid="stToggle"] [data-baseweb="toggle"][aria-checked="true"] {{
+                background: #0f766e !important;
+                border: 1px solid #0f766e !important;
+            }}
+            [data-testid="stToggle"] [role="switch"] > div,
+            [data-testid="stToggle"] [data-baseweb="toggle"] > div {{
+                background: #ffffff !important;
+                border: 1px solid #475569 !important;
             }}
             .metric-card {{
                 background: {colors["card_bg"]};
@@ -949,27 +1090,28 @@ def main():
             .metric-label {{ color: {colors["label"]}; font-size: 0.86rem; }}
             .metric-value {{ color: {colors["value"]}; font-size: 1.48rem; font-weight: 700; }}
             a {{ color: #2f7a66 !important; }}
-            .stDownloadButton > button {{
+            [data-testid="stDownloadButton"] button {{
                 background: linear-gradient(135deg, #0f766e 0%, #115e59 100%) !important;
                 color: #ffffff !important;
                 border: 1px solid #0f766e !important;
                 border-radius: 8px !important;
                 box-shadow: 0 4px 12px rgba(15, 118, 110, 0.24) !important;
-                font-size: 0.62rem;
+                font-size: 0.72rem !important;
                 font-weight: 700 !important;
-                min-height: 1.25rem;
-                padding: 0.06rem 0.35rem;
+                min-height: 1.9rem !important;
+                line-height: 1 !important;
+                padding: 0.12rem 0.55rem !important;
             }}
-            .stDownloadButton > button:hover {{
+            [data-testid="stDownloadButton"] button:hover {{
                 background: linear-gradient(135deg, #0b5f58 0%, #0f4f4a 100%) !important;
                 color: #ffffff !important;
                 border: 1px solid #0b5f58 !important;
                 box-shadow: 0 5px 14px rgba(15, 118, 110, 0.28) !important;
             }}
             .stButton > button {{
-                font-size: 0.58rem;
-                min-height: 1.18rem;
-                padding: 0.02rem 0.24rem;
+                font-size: 0.5rem;
+                min-height: 0.95rem;
+                padding: 0.01rem 0.16rem;
             }}
             button[data-testid="stBaseButton-secondary"] {{
                 background: #e5e7eb !important;
@@ -1011,17 +1153,62 @@ def main():
                 font-weight: 600 !important;
             }}
             [data-testid="stMultiSelect"] [data-baseweb="select"] > div {{
-                background: {colors["card_bg"]} !important;
+                background: {colors["multiselect_bg"]} !important;
                 border: 1px solid {colors["card_border"]} !important;
-                color: {colors["heading"]} !important;
+                color: {colors["multiselect_text"]} !important;
             }}
             [data-testid="stMultiSelect"] [data-baseweb="tag"] {{
-                background: {colors["tab_bg"]} !important;
+                background: {colors["multiselect_tag_bg"]} !important;
                 border: 1px solid {colors["tab_border"]} !important;
-                color: {colors["tab_text"]} !important;
+                color: {colors["multiselect_tag_text"]} !important;
+            }}
+            [data-testid="stMultiSelect"] [data-baseweb="tag"] svg,
+            [data-testid="stMultiSelect"] [data-baseweb="tag"] [role="button"],
+            [data-testid="stMultiSelect"] [data-baseweb="tag"] button {{
+                color: {colors["multiselect_tag_text"]} !important;
+                fill: {colors["multiselect_tag_text"]} !important;
+                opacity: 1 !important;
+            }}
+            [data-testid="stMultiSelect"] [data-baseweb="tag"] svg path {{
+                fill: {colors["multiselect_tag_text"]} !important;
+                stroke: {colors["multiselect_tag_text"]} !important;
+            }}
+            [data-testid="stMultiSelect"] [data-baseweb="tag"] [role="button"]:hover,
+            [data-testid="stMultiSelect"] [data-baseweb="tag"] button:hover {{
+                color: {colors["multiselect_tag_text"]} !important;
+                fill: {colors["multiselect_tag_text"]} !important;
+                opacity: 1 !important;
             }}
             [data-testid="stMultiSelect"] input {{
-                color: {colors["heading"]} !important;
+                color: {colors["multiselect_text"]} !important;
+            }}
+            div[data-baseweb="popover"] ul {{
+                background: {colors["multiselect_menu_bg"]} !important;
+                color: {colors["multiselect_text"]} !important;
+            }}
+            div[data-baseweb="popover"] li {{
+                color: {colors["multiselect_text"]} !important;
+            }}
+            [data-testid="stMultiSelect"] [aria-label*="Clear"],
+            [data-testid="stMultiSelect"] [title*="Clear"] {{
+                color: {colors["multiselect_clear_icon"]} !important;
+                fill: {colors["multiselect_clear_icon"]} !important;
+                opacity: 1 !important;
+            }}
+            [data-testid="stMultiSelect"] [aria-label*="Clear"] svg,
+            [data-testid="stMultiSelect"] [title*="Clear"] svg,
+            [data-testid="stMultiSelect"] [aria-label*="Clear"] svg path,
+            [data-testid="stMultiSelect"] [title*="Clear"] svg path {{
+                color: {colors["multiselect_clear_icon"]} !important;
+                fill: {colors["multiselect_clear_icon"]} !important;
+                stroke: {colors["multiselect_clear_icon"]} !important;
+            }}
+            [data-testid="stMultiSelect"] [data-baseweb="select"] svg,
+            [data-testid="stMultiSelect"] [data-baseweb="select"] svg path {{
+                color: {colors["multiselect_clear_icon"]} !important;
+                fill: {colors["multiselect_clear_icon"]} !important;
+                stroke: {colors["multiselect_clear_icon"]} !important;
+                opacity: 1 !important;
             }}
             .stTabs [data-baseweb="tab-list"] {{
                 gap: 0.45rem;
@@ -1092,36 +1279,38 @@ def main():
         )
         return
 
-    title_col, mode_col = st.columns([8.7, 1.3], gap="small")
+    title_col, mode_col = st.columns([7.0, 3.0], gap="small")
     with title_col:
         st.markdown(
             f"<h1 style='color:{colors['heading']}; margin-bottom:0.2rem;'>🧬 PDAC Trial Atlas</h1>",
             unsafe_allow_html=True,
         )
     with mode_col:
-        mode_lbl_col, normal_col, dark_col = st.columns([0.7, 0.9, 0.8], gap="small")
-        with mode_lbl_col:
-            st.markdown("<div class='theme-label-inline'>Mode</div>", unsafe_allow_html=True)
-        with normal_col:
-            normal_clicked = st.button(
-                "Normal",
-                key="theme_normal_btn_title",
-                width="stretch",
-                type="secondary",
-            )
-            if normal_clicked and st.session_state.get("theme_mode") != "Normal":
-                st.session_state["theme_mode"] = "Normal"
-                st.rerun()
-        with dark_col:
-            dark_clicked = st.button(
-                "Dark",
-                key="theme_dark_btn_title",
-                width="stretch",
-                type="primary",
-            )
-            if dark_clicked and st.session_state.get("theme_mode") != "Dark":
-                st.session_state["theme_mode"] = "Dark"
-                st.rerun()
+        _, mode_group_col = st.columns([0.70, 0.30], gap="small")
+        with mode_group_col:
+            mode_lbl_col, normal_col, dark_col = st.columns([0.24, 0.38, 0.38], gap="small")
+            with mode_lbl_col:
+                st.markdown("<div class='query-hint' style='margin-top:0.24rem;'><b>Mode</b></div>", unsafe_allow_html=True)
+            with normal_col:
+                normal_clicked = st.button(
+                    "Normal",
+                    key="theme_normal_btn_title",
+                    width="stretch",
+                    type="secondary",
+                )
+                if normal_clicked and st.session_state.get("theme_mode") != "Normal":
+                    st.session_state["theme_mode"] = "Normal"
+                    st.rerun()
+            with dark_col:
+                dark_clicked = st.button(
+                    "Dark",
+                    key="theme_dark_btn_title",
+                    width="stretch",
+                    type="primary",
+                )
+                if dark_clicked and st.session_state.get("theme_mode") != "Dark":
+                    st.session_state["theme_mode"] = "Dark"
+                    st.rerun()
 
     st.markdown(
         "<div class='subtitle-strong'>Explore trials and analytics from the current filtered dataset.</div>",
