@@ -9,66 +9,78 @@ def parse_date(date_struct):
     except Exception:
         return None
 
-def classify_study(proto):
-    design = proto.get("designModule", {})
-    study_type = design.get("studyType")
 
-    if study_type == "Interventional":
-        return "therapeutic"
+def normalize_trial(study: dict) -> dict:
+    """
+    Normalize a single clinical trial record coming from
+    clinicaltrials.py output.
 
-    return "non_therapeutic"
-
-def normalize_trial(study):
-    proto = study.get("protocolSection", {})
-    ident = proto.get("identificationModule", {})
-    status = proto.get("statusModule", {})
-    sponsor = proto.get("sponsorCollaboratorsModule", {})
-    design = proto.get("designModule", {})
-    conditions = proto.get("conditionsModule", {})
-
-    study_category = classify_study(proto)
+    This function does NOT reclassify.
+    It trusts upstream classification and just standardizes fields.
+    """
 
     return {
-        "nct_id": ident.get("nctId"),
-        "title": ident.get("briefTitle"),
-        "phase": (
-            design.get("phaseList", {})
-            .get("phase", ["Unknown"])[0]
-        ),
-        "status": status.get("overallStatus"),
-        "condition_raw": ", ".join(
-            conditions.get("conditions", [])
-        ),
-        "study_type": design.get("studyType"),
-        "study_category": study_category,
-        "start_date": parse_date(status.get("startDateStruct")),
-        "primary_completion": parse_date(
-            status.get("primaryCompletionDateStruct")
-        ),
-        "sponsor": sponsor.get("leadSponsor", {}).get("name"),
-        "setting": "unknown",
-        "line_of_therapy": "unknown"
+        # Core identifiers
+        "nct_id": study.get("nct_id"),
+        "title": study.get("title"),
+
+        # Trial metadata
+        "study_type": study.get("study_type"),
+        "study_design": study.get("study_design"),
+        "phase": study.get("phase"),
+        "status": study.get("status"),
+        "sponsor": study.get("sponsor"),
+
+        # PDAC relevance
+        "pdac_match_reason": study.get("pdac_match_reason"),
+
+        # Classification (already inferred upstream)
+        "therapeutic_class": study.get("therapeutic_class"),
+        "focus_tags": study.get("focus_tags"),
+        "noise_flags": study.get("noise_flags"),
+
+        # Dates (optional, may be null if missing)
+        "start_date": parse_date(study.get("start_date"))
+        if isinstance(study.get("start_date"), dict)
+        else study.get("start_date"),
+
+        "primary_completion_date": parse_date(
+            study.get("primary_completion_date")
+        )
+        if isinstance(study.get("primary_completion_date"), dict)
+        else study.get("primary_completion_date"),
+
+        # Derived / future-use fields
+        "setting": infer_setting(study),
+        "line_of_therapy": infer_line_of_therapy(study),
     }
 
-def infer_therapeutic_intent(title):
-    if not title:
-        return "unclear"
 
-    title_l = title.lower()
+def infer_setting(study: dict) -> str:
+    """
+    Lightweight inference of disease setting.
+    """
+    tags = (study.get("focus_tags") or "").lower()
 
-    supportive_keywords = [
-        "quality of life",
-        "symptom",
-        "pain",
-        "nutrition",
-        "pancrelipase",
-        "appetite",
-        "supportive",
-        "palliative"
-    ]
+    if "advanced_disease" in tags:
+        return "advanced"
+    if "resectable_disease" in tags:
+        return "resectable"
 
-    for kw in supportive_keywords:
-        if kw in title_l:
-            return "supportive"
+    return "unspecified"
 
-    return "anticancer"
+
+def infer_line_of_therapy(study: dict) -> str:
+    """
+    Very conservative inference.
+    """
+    title = (study.get("title") or "").lower()
+
+    if "first-line" in title:
+        return "first_line"
+    if "second-line" in title:
+        return "second_line"
+    if "refractory" in title:
+        return "refractory"
+
+    return "unspecified"

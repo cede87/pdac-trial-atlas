@@ -1,9 +1,9 @@
 """
 Ingest PDAC-related clinical trials from ClinicalTrials.gov,
-classify them (therapeutic / biomarker / other),
 store them in the database, and print a readable preview table.
 
-Comments intentionally verbose for clarity.
+This script does NOT reclassify trials.
+All semantic classification is done upstream (clinicaltrials.py).
 """
 
 from ingest.clinicaltrials import fetch_trials_pancreas
@@ -14,105 +14,13 @@ from tabulate import tabulate
 
 
 # -------------------------------------------------------------------
-# Trial classification logic
-# -------------------------------------------------------------------
-
-def classify_trial(title: str, study_type: str) -> tuple[str, str]:
-    """
-    Classify a clinical trial based on title keywords and study type.
-
-    Returns:
-        (classification, reason)
-    """
-
-    t = title.lower()
-
-    # -------------------------
-    # Therapeutic keywords
-    # -------------------------
-    therapeutic_keywords = [
-        # generic therapy terms
-        "treatment", "therapy", "therapeutic", "intervention",
-        "chemotherapy", "immunotherapy", "radiotherapy", "radiation",
-        "drug", "agent", "compound", "monotherapy", "combination",
-
-        # specific treatment strategies
-        "folfirinox", "gemcitabine", "nab-paclitaxel", "abraxane",
-        "irinotecan", "oxaliplatin", "cisplatin", "capecitabine",
-        "durvalumab", "pembrolizumab", "nivolumab", "avelumab",
-        "trastuzumab", "olaparib", "talazoparib",
-
-        # advanced therapies
-        "car-t", "cart", "tcr", "vaccine", "neoantigen",
-        "oncolytic", "viral", "cell therapy",
-
-        # procedures
-        "surgery", "resection", "sbtr", "sbrt",
-        "ablation", "radiofrequency", "hifu", "hipec",
-
-        # trial wording
-        "dose escalation", "dose expansion",
-        "phase i", "phase ii", "phase iii"
-    ]
-
-    # -------------------------
-    # Biomarker / molecular keywords
-    # -------------------------
-    biomarker_keywords = [
-        "biomarker", "marker", "molecular", "signature",
-        "expression", "profiling", "mutation", "mutational",
-        "genomic", "genetic", "germline", "somatic",
-
-        # liquid biopsy
-        "ctdna", "circulating tumor dna", "circulating tumor cells",
-        "ctc", "blood biomarker", "plasma",
-
-        # omics
-        "transcriptomic", "proteomic", "metabolomic", "multiomics",
-        "epigenetic", "methylation",
-
-        # imaging biomarkers
-        "pet", "mri", "ct", "imaging biomarker", "radiomic",
-
-        # prognosis / prediction
-        "predictive", "prognostic", "risk model",
-        "stratification", "response prediction"
-    ]
-
-    # -------------------------
-    # Early detection / screening (kept but tagged)
-    # -------------------------
-    early_detection_keywords = [
-        "screening", "early detection", "early diagnosis",
-        "high-risk", "surveillance", "follow-up",
-        "precancerous", "ipan", "ipmn"
-    ]
-
-    # -------------------------
-    # Rule-based classification
-    # -------------------------
-
-    if study_type == "INTERVENTIONAL":
-        return "therapeutic", "Interventional study"
-
-    if any(k in t for k in biomarker_keywords):
-        return "biomarker", "Biomarker or molecular study"
-
-    if any(k in t for k in early_detection_keywords):
-        return "other", "Early detection / screening study"
-
-    return "other", "Does not match therapeutic or biomarker criteria"
-
-
-# -------------------------------------------------------------------
 # Main ingestion routine
 # -------------------------------------------------------------------
 
 def run():
     """
     Main ingestion flow:
-    - fetch pancreas-related trials
-    - classify them
+    - fetch pancreas-related trials (already filtered & classified)
     - upsert into DB
     - print a preview table
     """
@@ -120,45 +28,50 @@ def run():
     init_db()
     session = SessionLocal()
 
-    print("Fetching pancreas-related trials from ClinicalTrials.gov ...")
+    print("Fetching PDAC-related trials from ClinicalTrials.gov ...")
 
     studies = fetch_trials_pancreas(max_records=1000)
 
     inserted = 0
+    updated = 0
 
     for s in studies:
         nct_id = s["nct_id"]
 
-        title = s.get("title", "")
-        study_type = s.get("study_type", "UNKNOWN")
-        phase = s.get("phase", "Unknown")
-        status = s.get("status", "Unknown")
-        sponsor = s.get("sponsor", "Unknown")
-
-        classification, reason = classify_trial(title, study_type)
-
-        # Upsert logic (idempotent ingestion)
         trial = session.get(ClinicalTrial, nct_id)
         if not trial:
             trial = ClinicalTrial(nct_id=nct_id)
             session.add(trial)
             inserted += 1
+        else:
+            updated += 1
 
-        trial.title = title
-        trial.study_type = study_type
-        trial.phase = phase
-        trial.status = status
-        trial.sponsor = sponsor
-        trial.classification = classification
-        trial.classification_reason = reason
+        # -----------------------------
+        # Core fields
+        # -----------------------------
+        trial.title = s.get("title")
+        trial.study_type = s.get("study_type")
+        trial.phase = s.get("phase")
+        trial.status = s.get("status")
+        trial.sponsor = s.get("sponsor")
+
+        # -----------------------------
+        # Semantic classification
+        # -----------------------------
+        trial.study_design = s.get("study_design")
+        trial.therapeutic_class = s.get("therapeutic_class")
+        trial.focus_tags = s.get("focus_tags")
+        trial.pdac_match_reason = s.get("pdac_match_reason")
+        trial.noise_flags = s.get("noise_flags")
 
     session.commit()
 
     print(f"\nTrials processed: {len(studies)}")
     print(f"New trials inserted: {inserted}")
+    print(f"Existing trials updated: {updated}")
 
     # ----------------------------------------------------------------
-    # Console preview table (WHAT YOU WANTED)
+    # Console preview table (readable & useful)
     # ----------------------------------------------------------------
 
     rows = (
@@ -167,11 +80,11 @@ def run():
             ClinicalTrial.title,
             ClinicalTrial.study_type,
             ClinicalTrial.phase,
-            ClinicalTrial.status,
-            ClinicalTrial.classification,
+            ClinicalTrial.therapeutic_class,
+            ClinicalTrial.focus_tags,
         )
-        .order_by(ClinicalTrial.classification, ClinicalTrial.phase)
-        .limit(50)
+        .order_by(ClinicalTrial.therapeutic_class, ClinicalTrial.phase)
+        .limit(40)
         .all()
     )
 
@@ -184,11 +97,11 @@ def run():
                 "Title",
                 "StudyType",
                 "Phase",
-                "Status",
-                "Class",
+                "TherapeuticClass",
+                "Tags",
             ],
             tablefmt="github",
-            maxcolwidths=[12, 55, 15, 10, 20, 15],
+            maxcolwidths=[12, 60, 14, 10, 18, 30],
         )
     )
 

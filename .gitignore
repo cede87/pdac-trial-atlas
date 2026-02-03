@@ -201,6 +201,10 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Project generated artifacts
+pdac_trials.db
+pdac_trials_export.csv
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
