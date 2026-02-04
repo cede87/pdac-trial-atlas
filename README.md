@@ -5,6 +5,14 @@ An open, evidence-graded atlas of pancreatic ductal adenocarcinoma (PDAC) clinic
 
 Current release: **v1.2**
 
+## Disclaimer
+
+This project is an independent, good-faith learning initiative intended to support exploration of publicly available PDAC clinical trial data.
+
+It is **not** a medical product, clinical decision system, regulatory tool, or source of medical advice. It does not guarantee completeness, correctness, or fitness for clinical use. Any interpretation or downstream use of the data is the sole responsibility of the user.
+
+No claims are made regarding outcomes, efficacy, safety, or research conclusions. The purpose of this work is to learn in public and contribute constructively, with humility, transparency, and a genuine intention to help the research community.
+
 ## Local dashboard
 
 1. Install deps:
