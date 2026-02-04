@@ -60,32 +60,32 @@ Recommended full local validation flow:
 
 Below is what each field stores, expected values/patterns, and one quick example.
 
-| Column | What it is | Possible values / format | Example |
-|---|---|---|---|
-| `nct_id` | ClinicalTrials.gov trial ID | `NCT` + digits | `NCT03859869` |
-| `title` | Brief trial title | Free text | `Pancreatic Cancer Study ...` |
-| `study_type` | Trial type from source | `INTERVENTIONAL`, `OBSERVATIONAL`, `EXPANDED_ACCESS`, `NA` | `INTERVENTIONAL` |
-| `study_design` | Normalized design label | `interventional`, `observational`, `expanded_access`, `unknown`, `NA` | `interventional` |
-| `phase` | Trial phase | source values (`Phase 1`, `Phase 2`, `Phase 3`, `Phase 4`, combinations), `NA` | `Phase 2` |
-| `status` | Recruitment/overall status | source statuses (`RECRUITING`, `COMPLETED`, etc.), `NA` | `RECRUITING` |
-| `sponsor` | Lead sponsor name | Free text / `NA` | `Memorial Sloan Kettering Cancer Center` |
-| `admission_date` | First registration/posting date used for the study | `YYYY-MM-DD` or `NA` | `2019-02-28` |
-| `last_update_date` | Last trial update date from source | `YYYY-MM-DD` or `NA` | `2024-03-27` |
-| `has_results` | Result availability flag | `yes`, `no`, `NA` | `yes` |
-| `results_last_update` | Date linked to results posting/submission | `YYYY-MM-DD` or `NA` | `2023-06-05` |
-| `conditions` | Conditions list | Pipe-separated text or `NA` | `Pancreatic Cancer \| Exocrine Pancreatic Insufficiency` |
-| `interventions` | Intervention entries with type and name | Pipe-separated `TYPE: name` or `NA` | `DRUG: Pancrelipase \| DRUG: Placebo` |
-| `intervention_types` | **Separated intervention type(s)** | Comma-separated source types (`BEHAVIORAL`, `BIOLOGICAL`, `COMBINATION_PRODUCT`, `DEVICE`, `DIAGNOSTIC_TEST`, `DIETARY_SUPPLEMENT`, `DRUG`, `GENETIC`, `OTHER`, `PROCEDURE`, `RADIATION`) or `NA` | `DRUG, PROCEDURE` |
-| `primary_outcomes` | Primary outcome definitions | Pipe-separated text or `NA` | `Change in Stool Fat ... ; timeframe=Week 1` |
-| `secondary_outcomes` | Secondary outcome definitions | Pipe-separated text or `NA` | `Progression-free survival ...` |
-| `inclusion_criteria` | Inclusion criteria text | Free text / `NA` | `Age >= 18 ...` |
-| `exclusion_criteria` | Exclusion criteria text | Free text / `NA` | `No prior severe hypersensitivity ...` |
-| `locations` | Trial sites | Pipe-separated `site (city, country)` or `NA` | `MD Anderson (Houston, United States)` |
-| `brief_summary` | Source brief summary | Free text / `NA` | `Primary objective is to ...` |
-| `detailed_description` | Source detailed description | Free text / `NA` | `This phase 2 study evaluates ...` |
-| `therapeutic_class` | Normalized therapy class | `chemotherapy`, `immunotherapy`, `targeted_therapy`, `radiotherapy`, `surgical`, `locoregional_therapy`, `registry_program`, `translational_research`, `supportive_care`, `biomarker_diagnostics`, `observational_non_therapeutic`, `context_classified`, `NA` | `targeted_therapy` |
-| `focus_tags` | Normalized tag set | Comma-separated tags or `NA` | `biomarker,advanced_disease` |
-| `pdac_match_reason` | Why the trial matched PDAC filter | `explicit_pdac`, `pdac_acronym`, `adenocarcinoma_pancreas`, `generic_pancreatic_cancer`, `unknown_match`, `NA` | `explicit_pdac` |
+| Column | What it is | Possible values / format |
+|---|---|---|
+| `nct_id` | ClinicalTrials.gov trial ID | `NCT` + digits |
+| `title` | Brief trial title | Free text |
+| `study_type` | Trial type from source | `INTERVENTIONAL`, `OBSERVATIONAL`, `EXPANDED_ACCESS`, `NA` |
+| `study_design` | Normalized design label | `interventional`, `observational`, `expanded_access`, `unknown`, `NA` |
+| `phase` | Trial phase | source values (`Phase 1`, `Phase 2`, `Phase 3`, `Phase 4`, combinations), `NA` |
+| `status` | Recruitment/overall status | source statuses (`RECRUITING`, `COMPLETED`, etc.), `NA` |
+| `sponsor` | Lead sponsor name | Free text / `NA` |
+| `admission_date` | First registration/posting date used for the study | `YYYY-MM-DD` or `NA` |
+| `last_update_date` | Last trial update date from source | `YYYY-MM-DD` or `NA` |
+| `has_results` | Result availability flag | `yes`, `no`, `NA` |
+| `results_last_update` | Date linked to results posting/submission | `YYYY-MM-DD` or `NA` |
+| `conditions` | Conditions list | Pipe-separated text or `NA` |
+| `interventions` | Intervention entries with type and name | Pipe-separated `TYPE: name` or `NA` |
+| `intervention_types` | **Separated intervention type(s)** | Comma-separated source types (`BEHAVIORAL`, `BIOLOGICAL`, `COMBINATION_PRODUCT`, `DEVICE`, `DIAGNOSTIC_TEST`, `DIETARY_SUPPLEMENT`, `DRUG`, `GENETIC`, `OTHER`, `PROCEDURE`, `RADIATION`) or `NA` |
+| `primary_outcomes` | Primary outcome definitions | Pipe-separated text or `NA` |
+| `secondary_outcomes` | Secondary outcome definitions | Pipe-separated text or `NA` |
+| `inclusion_criteria` | Inclusion criteria text | Free text / `NA` |
+| `exclusion_criteria` | Exclusion criteria text | Free text / `NA` |
+| `locations` | Trial sites | Pipe-separated `site (city, country)` or `NA` |
+| `brief_summary` | Source brief summary | Free text / `NA` |
+| `detailed_description` | Source detailed description | Free text / `NA` |
+| `therapeutic_class` | Normalized therapy class | `chemotherapy`, `immunotherapy`, `targeted_therapy`, `radiotherapy`, `surgical`, `locoregional_therapy`, `registry_program`, `translational_research`, `supportive_care`, `biomarker_diagnostics`, `observational_non_therapeutic`, `context_classified`, `NA` |
+| `focus_tags` | Normalized tag set | Comma-separated tags or `NA` |
+| `pdac_match_reason` | Why the trial matched PDAC filter | `explicit_pdac`, `pdac_acronym`, `adenocarcinoma_pancreas`, `generic_pancreatic_cancer`, `unknown_match`, `NA` |
 
 ## One full-row example (all fields)
 
