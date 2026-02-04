@@ -16,6 +16,23 @@ Current release: **v1.2**
 
 The dashboard runs 100% local and reads from `pdac_trials.db`.
 
+## Deploy to Streamlit Community Cloud
+
+This repo is now ready for Streamlit deployment:
+
+- App entrypoint: `streamlit_app.py`
+- Streamlit config: `.streamlit/config.toml`
+- Python runtime: `runtime.txt` (Python 3.11)
+
+Publish steps:
+
+1. Push this repo to GitHub.
+2. In Streamlit Community Cloud, create a new app from the repo.
+3. Set main file path to: `streamlit_app.py`
+4. Deploy.
+
+On first run, click **Initialize dataset** in the app to fetch data from ClinicalTrials.gov and build `pdac_trials.db`.
+
 ## Testing
 
 Run unit/regression tests:

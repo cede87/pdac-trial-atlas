@@ -1273,10 +1273,20 @@ def main():
     db_mtime = DB_PATH.stat().st_mtime if DB_PATH.exists() else 0.0
     df = load_trials(db_mtime)
     if df.empty:
-        st.error(
-            "No `pdac_trials.db` found. Run first: "
-            "`PYTHONPATH=. .venv/bin/python scripts/ingest_clinicaltrials.py`"
+        st.warning("No local dataset found yet.")
+        st.caption(
+            "For Streamlit Cloud, use the button below to initialize data from ClinicalTrials.gov."
         )
+        if st.button("Initialize dataset", type="primary", width="content"):
+            with st.spinner("Fetching and building local dataset. This can take a minute..."):
+                try:
+                    from scripts.ingest_clinicaltrials import run as ingest_run
+
+                    ingest_run()
+                    load_trials.clear()
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Dataset initialization failed: {exc}")
         return
 
     title_col, mode_col = st.columns([7.0, 3.0], gap="small")
