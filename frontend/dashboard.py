@@ -1140,12 +1140,36 @@ def main():
                 text-align: right;
                 padding-top: 0.28rem;
             }}
+            .mode-toolbar-gap {{
+                height: 0.08rem;
+            }}
+            .mode-inline-label {{
+                color: {colors["heading"]};
+                font-size: 0.78rem;
+                font-weight: 700;
+                text-align: right;
+                padding-top: 0.28rem;
+                white-space: nowrap;
+            }}
             .subtitle-strong {{
                 color: {colors["heading"]};
                 font-size: 0.9rem;
                 font-weight: 600;
                 margin-top: 0.1rem;
                 margin-bottom: 1.2rem;
+            }}
+            @media (max-width: 760px) {{
+                .mode-inline-label {{
+                    text-align: left;
+                    padding-top: 0.14rem;
+                }}
+                .mode-toolbar-gap {{
+                    height: 0.2rem;
+                }}
+                .stButton > button {{
+                    font-size: 0.58rem;
+                    min-height: 1.1rem;
+                }}
             }}
             /* Columns to show (multiselect) theming */
             [data-testid="stMultiSelect"] label {{
@@ -1289,38 +1313,36 @@ def main():
                     st.error(f"Dataset initialization failed: {exc}")
         return
 
-    title_col, mode_col = st.columns([7.0, 3.0], gap="small")
-    with title_col:
-        st.markdown(
-            f"<h1 style='color:{colors['heading']}; margin-bottom:0.2rem;'>🧬 PDAC Trial Atlas</h1>",
-            unsafe_allow_html=True,
+    st.markdown(
+        f"<h1 style='color:{colors['heading']}; margin-bottom:0.2rem;'>🧬 PDAC Trial Atlas</h1>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("<div class='mode-toolbar-gap'></div>", unsafe_allow_html=True)
+    mode_spacer_col, mode_lbl_col, normal_col, dark_col = st.columns([6.5, 1.0, 1.25, 1.25], gap="small")
+    with mode_spacer_col:
+        st.markdown("", unsafe_allow_html=True)
+    with mode_lbl_col:
+        st.markdown("<div class='mode-inline-label'>Mode</div>", unsafe_allow_html=True)
+    with normal_col:
+        normal_clicked = st.button(
+            "Normal",
+            key="theme_normal_btn_title",
+            width="stretch",
+            type="secondary",
         )
-    with mode_col:
-        _, mode_group_col = st.columns([0.70, 0.30], gap="small")
-        with mode_group_col:
-            mode_lbl_col, normal_col, dark_col = st.columns([0.24, 0.38, 0.38], gap="small")
-            with mode_lbl_col:
-                st.markdown("<div class='query-hint' style='margin-top:0.24rem;'><b>Mode</b></div>", unsafe_allow_html=True)
-            with normal_col:
-                normal_clicked = st.button(
-                    "Normal",
-                    key="theme_normal_btn_title",
-                    width="stretch",
-                    type="secondary",
-                )
-                if normal_clicked and st.session_state.get("theme_mode") != "Normal":
-                    st.session_state["theme_mode"] = "Normal"
-                    st.rerun()
-            with dark_col:
-                dark_clicked = st.button(
-                    "Dark",
-                    key="theme_dark_btn_title",
-                    width="stretch",
-                    type="primary",
-                )
-                if dark_clicked and st.session_state.get("theme_mode") != "Dark":
-                    st.session_state["theme_mode"] = "Dark"
-                    st.rerun()
+        if normal_clicked and st.session_state.get("theme_mode") != "Normal":
+            st.session_state["theme_mode"] = "Normal"
+            st.rerun()
+    with dark_col:
+        dark_clicked = st.button(
+            "Dark",
+            key="theme_dark_btn_title",
+            width="stretch",
+            type="primary",
+        )
+        if dark_clicked and st.session_state.get("theme_mode") != "Dark":
+            st.session_state["theme_mode"] = "Dark"
+            st.rerun()
 
     st.markdown(
         "<div class='subtitle-strong'>Explore trials and analytics from the current filtered dataset.</div>",
