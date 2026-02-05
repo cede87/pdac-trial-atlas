@@ -441,7 +441,7 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     st.sidebar.markdown("<div style='height:0.35rem;'></div>", unsafe_allow_html=True)
     st.sidebar.markdown(
         "<div style='display:flex; gap:0.25rem; align-items:center;'>"
-        "<span class='sidebar-version-footer'>v1.2</span>"
+        "<span class='sidebar-version-footer'>v1.3</span>"
         "<span class='sidebar-version-footer'>MIT License</span>"
         "</div>",
         unsafe_allow_html=True,
