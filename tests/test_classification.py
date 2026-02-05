@@ -3,6 +3,7 @@ import unittest
 from ingest.clinicaltrials import (
     _extract_interventions,
     _extract_outcomes,
+    _extract_pubmed_pmids,
     build_classification_text,
     classify_study,
     pdac_match_reason,
@@ -122,6 +123,10 @@ class ClassificationTests(unittest.TestCase):
     def test_pdac_match_reason_handles_ductal_pancreas_phrase(self):
         reason = pdac_match_reason("Ductal adenocarcinoma of the pancreas pilot trial")
         self.assertEqual(reason, "explicit_pdac")
+
+    def test_extract_pubmed_pmids_from_esearch_payload(self):
+        payload = {"esearchresult": {"idlist": ["12345", "67890"]}}
+        self.assertEqual(_extract_pubmed_pmids(payload), ["12345", "67890"])
 
 
 if __name__ == "__main__":

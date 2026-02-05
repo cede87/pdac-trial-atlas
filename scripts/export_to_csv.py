@@ -24,6 +24,9 @@ def run():
         # --------------------------------------------------
         writer.writerow([
             "nct_id",
+            "source",
+            "secondary_id",
+            "trial_link",
             "title",
             "study_type",
             "study_design",
@@ -34,6 +37,7 @@ def run():
             "last_update_date",
             "has_results",
             "results_last_update",
+            "pubmed_links",
             "conditions",
             "interventions",
             "intervention_types",
@@ -56,6 +60,9 @@ def run():
             d = db.get(ClinicalTrialDetails, t.nct_id)
             writer.writerow([
                 t.nct_id,
+                t.source,
+                t.secondary_id,
+                t.trial_link,
                 t.title,
                 t.study_type,
                 t.study_design,
@@ -66,6 +73,7 @@ def run():
                 t.last_update_date,
                 t.has_results,
                 t.results_last_update,
+                t.pubmed_links,
                 (d.conditions if d else "NA"),
                 (d.interventions if d else "NA"),
                 t.intervention_types,

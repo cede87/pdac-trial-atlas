@@ -9,6 +9,9 @@ class ClinicalTrial(Base):
 
     # Core identifiers
     nct_id = Column(String, primary_key=True, index=True)
+    source = Column(String)
+    secondary_id = Column(String)
+    trial_link = Column(Text)
     title = Column(Text)
 
     # Trial metadata
@@ -21,6 +24,7 @@ class ClinicalTrial(Base):
     last_update_date = Column(String)
     has_results = Column(String)
     results_last_update = Column(String)
+    pubmed_links = Column(Text)
     intervention_types = Column(String)
 
     # Semantic classification
