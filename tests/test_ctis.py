@@ -3,6 +3,7 @@ import unittest
 from ingest.ctis import (
     DEFAULT_CTIS_PDAC_QUERY_TERMS,
     _extract_interventions,
+    _extract_pubmed_links_from_references,
     _extract_additional_focus_tags,
     _is_pdac_candidate,
     _map_ctis_study_type,
@@ -85,6 +86,25 @@ class CtisNormalizationTests(unittest.TestCase):
         )
         self.assertIn("mixed_solid_tumor", tags)
         self.assertIn("neuroendocrine_signal", tags)
+
+    def test_extract_pubmed_links_from_references_supports_pmid_and_doi(self):
+        details = {
+            "authorizedApplication": {
+                "authorizedPartI": {
+                    "trialDetails": {
+                        "references": [
+                            {
+                                "reference": "PMID: 12345678",
+                                "citation": "DOI: 10.1200/JCO.123.456",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        links = _extract_pubmed_links_from_references(details)
+        self.assertIn("https://pubmed.ncbi.nlm.nih.gov/12345678/", links)
+        self.assertIn("https://doi.org/10.1200/JCO.123.456", links)
 
 
 if __name__ == "__main__":

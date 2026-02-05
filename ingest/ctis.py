@@ -19,7 +19,12 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
 
-from ingest.clinicaltrials import classify_study, is_pdac_core, pdac_match_reason
+from ingest.clinicaltrials import (
+    _extract_pubmed_pmids,
+    classify_study,
+    is_pdac_core,
+    pdac_match_reason,
+)
 
 
 CTIS_SEARCH_URL = "https://euclinicaltrials.eu/ctis-public-api/search"
@@ -27,6 +32,7 @@ CTIS_RETRIEVE_URL = "https://euclinicaltrials.eu/ctis-public-api/retrieve/{ct_nu
 CTIS_TRIAL_URL = (
     "https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en&EUCT={ct_number}"
 )
+PUBMED_ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 
 REQUEST_TIMEOUT = 45
 RETRYABLE_STATUS_CODES = {403, 429, 500, 502, 503, 504}
@@ -352,6 +358,68 @@ def _extract_pubmed_links(details: Dict[str, Any]) -> str:
         if pmid.isdigit():
             urls.append(f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/")
     return _join_non_empty(_uniq(urls))
+
+
+def _extract_pubmed_links_from_references(details: Dict[str, Any]) -> str:
+    trial_details = _nested(
+        details,
+        ["authorizedApplication", "authorizedPartI", "trialDetails"],
+        {},
+    )
+    references = trial_details.get("references", []) or []
+    links = []
+    for ref in references:
+        if not isinstance(ref, dict):
+            continue
+        raw_text = " ".join(
+            [
+                _clean(ref.get("reference")),
+                _clean(ref.get("url")),
+                _clean(ref.get("title")),
+                _clean(ref.get("citation")),
+                _clean(ref.get("doi")),
+            ]
+        )
+        if not raw_text:
+            continue
+
+        # PMID patterns.
+        for pmid in re.findall(r"(?:pmid\s*[:#]?\s*|pubmed\/)(\d{5,10})", raw_text, flags=re.I):
+            links.append(f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/")
+
+        # DOI patterns.
+        for doi in re.findall(r"(10\.\d{4,9}/[-._;()/:A-Z0-9]+)", raw_text, flags=re.I):
+            links.append(f"https://doi.org/{doi}")
+
+    return _join_non_empty(_uniq(links))
+
+
+def _fetch_pubmed_links_by_title(title: str, max_links: int = 3) -> str:
+    """
+    Best-effort PubMed lookup for pure CTIS rows without NCT correlation.
+    """
+    text = _clean(title)
+    if not text:
+        return ""
+    # Keep query bounded and specific.
+    query = f"\"{text}\"[Title] AND (pancreatic OR pancreas OR PDAC)"
+    try:
+        resp = requests.get(
+            PUBMED_ESEARCH_URL,
+            params={
+                "db": "pubmed",
+                "retmode": "json",
+                "retmax": max_links,
+                "term": query,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        pmids = _extract_pubmed_pmids(resp.json())
+        links = [f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" for pmid in pmids]
+        return _join_non_empty(_uniq(links))
+    except Exception:
+        return ""
 
 
 def _extract_conditions(overview: Dict[str, Any], details: Dict[str, Any]) -> str:
@@ -748,6 +816,11 @@ def fetch_trials_ctis_pdac(
 
         secondary_nct = _extract_secondary_nct(details)
         pubmed_links = _extract_pubmed_links(details)
+        if not pubmed_links:
+            pubmed_links = _extract_pubmed_links_from_references(details)
+        if not pubmed_links and not secondary_nct:
+            # Pure CTIS trial without NCT bridge: fallback to title-based PubMed search.
+            pubmed_links = _fetch_pubmed_links_by_title(title or _clean(overview.get("ctTitle")), max_links=3)
         has_results = _normalize_results_flag(overview, details)
         if pubmed_links:
             has_results = "yes"

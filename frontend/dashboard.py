@@ -505,6 +505,7 @@ def render_explorer(filtered: pd.DataFrame):
     theme_mode = st.session_state.get("theme_mode", "Normal")
     is_dark = theme_mode == "Dark"
     page_size = 25
+    table_height = 980
 
     full_display_df = build_display_df(filtered)
 
@@ -532,45 +533,46 @@ def render_explorer(filtered: pd.DataFrame):
         "Tags",
     ]
     default_columns = [c for c in default_columns if c in all_columns]
-    st.markdown("<div style='height:0.35rem;'></div>", unsafe_allow_html=True)
-    cols_pick_col, export_col = st.columns([8.8, 1.2], gap="small")
-    with cols_pick_col:
-        selected_columns = st.multiselect(
-            "Columns to show",
-            options=all_columns,
-            default=default_columns,
-        )
-    if not selected_columns:
-        selected_columns = default_columns
-    if "Trial ID" not in selected_columns:
-        selected_columns = ["Trial ID"] + selected_columns
-    display_df = full_display_df[selected_columns + ["Trial Link"]].copy()
-    if "Paper Link" in display_df.columns:
-        display_df["Paper Link"] = display_df["Paper Link"].apply(first_pubmed_link)
-    with export_col:
-        st.markdown("<div style='height:1.95rem;'></div>", unsafe_allow_html=True)
-        st.download_button(
-            "Export filtered CSV",
-            data=display_df.to_csv(index=False).encode("utf-8"),
-            file_name="pdac_trials_filtered.csv",
-            mime="text/csv",
-            width="stretch",
-            key="table_export_filtered_csv",
-        )
+    with st.container(key="explorer_controls_banner_block"):
+        st.markdown("<div style='height:0.35rem;'></div>", unsafe_allow_html=True)
+        cols_pick_col, export_col = st.columns([8.8, 1.2], gap="small")
+        with cols_pick_col:
+            selected_columns = st.multiselect(
+                "Columns to show",
+                options=all_columns,
+                default=default_columns,
+            )
+        if not selected_columns:
+            selected_columns = default_columns
+        if "Trial ID" not in selected_columns:
+            selected_columns = ["Trial ID"] + selected_columns
+        display_df = full_display_df[selected_columns + ["Trial Link"]].copy()
+        if "Paper Link" in display_df.columns:
+            display_df["Paper Link"] = display_df["Paper Link"].apply(first_pubmed_link)
+        with export_col:
+            st.markdown("<div style='height:1.95rem;'></div>", unsafe_allow_html=True)
+            st.download_button(
+                "Export filtered CSV",
+                data=display_df.to_csv(index=False).encode("utf-8"),
+                file_name="pdac_trials_filtered.csv",
+                mime="text/csv",
+                width="stretch",
+                key="table_export_filtered_csv",
+            )
 
-    query_col = st.columns([1])[0]
-    with query_col:
-        st.markdown("<div style='height:0.25rem;'></div>", unsafe_allow_html=True)
-        st.markdown(
-            "<div class='query-hint'>Query mode: use <code>AND</code> to restrict, <code>OR</code> to broaden.</div>",
-            unsafe_allow_html=True,
-        )
-        st.text_input(
-            "Global text match (AND / OR)",
-            key="global_query",
-            label_visibility="collapsed",
-            placeholder='Examples: kras AND metastatic OR "phase 3"',
-        )
+        query_col = st.columns([1])[0]
+        with query_col:
+            st.markdown("<div style='height:0.25rem;'></div>", unsafe_allow_html=True)
+            st.markdown(
+                "<div class='query-hint'>Query mode: use <code>AND</code> to restrict, <code>OR</code> to broaden.</div>",
+                unsafe_allow_html=True,
+            )
+            st.text_input(
+                "Global text match (AND / OR)",
+                key="global_query",
+                label_visibility="collapsed",
+                placeholder='Examples: kras AND metastatic OR "phase 3"',
+            )
     st.markdown("<div style='margin-bottom:-0.75rem;'></div>", unsafe_allow_html=True)
 
     if HAS_AGGRID:
@@ -841,7 +843,7 @@ def render_explorer(filtered: pd.DataFrame):
                 update_mode="NO_UPDATE",
                 theme="streamlit",
                 fit_columns_on_grid_load=True,
-                height=980,
+                height=table_height,
                 key=f"aggrid_{theme_mode}",
             )
             return
@@ -889,7 +891,7 @@ def render_explorer(filtered: pd.DataFrame):
     st.dataframe(
         page_df,
         width="stretch",
-        height=980,
+        height=table_height,
         hide_index=True,
         column_config=column_cfg,
     )
@@ -1168,6 +1170,7 @@ def main():
             "multiselect_tag_text": "#e5e7eb",
             "multiselect_menu_bg": "#0f172a",
             "multiselect_clear_icon": "#cbd5e1",
+            "multiselect_placeholder": "#cbd5e1",
         }
     else:
         colors = {
@@ -1201,6 +1204,7 @@ def main():
             "multiselect_tag_text": "#1f2937",
             "multiselect_menu_bg": "#ffffff",
             "multiselect_clear_icon": "#64748b",
+            "multiselect_placeholder": "#64748b",
         }
 
     st.markdown(
@@ -1242,34 +1246,54 @@ def main():
                 color: {colors["label"]} !important;
                 opacity: 1 !important;
             }}
-            [data-testid="stAppViewContainer"] [data-testid="stTextInput"] [data-baseweb="input"] > div {{
-                background: {colors["sidebar_input_bg"]} !important;
-                border: 1px solid {colors["card_border"]} !important;
+            .st-key-explorer_controls_banner_block [data-testid="stTextInput"] [data-baseweb="input"] {{
+                background: {colors["multiselect_bg"]} !important;
+                border: 1px solid {colors["tab_border"]} !important;
+                border-radius: 8px !important;
                 box-shadow: none !important;
                 outline: none !important;
             }}
-            [data-testid="stAppViewContainer"] [data-testid="stTextInput"] [data-baseweb="input"] > div:focus-within {{
-                border: 1px solid {colors["card_border"]} !important;
+            .st-key-explorer_controls_banner_block [data-testid="stTextInput"] [data-baseweb="input"] > div {{
+                background: transparent !important;
+                border: 0 !important;
                 box-shadow: none !important;
                 outline: none !important;
             }}
-            [data-testid="stAppViewContainer"] [data-testid="stTextInput"] input {{
+            .st-key-explorer_controls_banner_block [data-testid="stTextInput"] [data-baseweb="input"]:focus-within {{
+                border: 1px solid {colors["tab_border"]} !important;
+                box-shadow: none !important;
+                outline: none !important;
+            }}
+            .st-key-explorer_controls_banner_block [data-testid="stTextInput"] [data-baseweb="input"] > div:focus-within {{
+                border: 0 !important;
+                border-radius: 8px !important;
+                box-shadow: none !important;
+                outline: none !important;
+            }}
+            .st-key-explorer_controls_banner_block [data-testid="stTextInput"] input {{
                 color: {colors["heading"]} !important;
                 caret-color: {colors["heading"]} !important;
             }}
-            [data-testid="stAppViewContainer"] [data-testid="stTextInput"] input::placeholder {{
+            .st-key-explorer_controls_banner_block [data-testid="stTextInput"] input::placeholder {{
                 color: {colors["label"]} !important;
                 opacity: 1 !important;
             }}
-            .query-hint {{
+            .st-key-explorer_controls_banner_block .query-hint {{
                 color: {colors["label"]};
                 font-size: 0.78rem;
-                margin: 0.1rem 0 0.2rem 0;
+                margin: 0.08rem 0 0.2rem 0;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.2rem;
+                background: {colors["multiselect_bg"]} !important;
+                border: 1px solid {colors["tab_border"]} !important;
+                border-radius: 8px;
+                padding: 0.22rem 0.42rem;
             }}
-            .query-hint code {{
+            .st-key-explorer_controls_banner_block .query-hint code {{
                 color: {colors["heading"]};
-                background: {colors["tab_bg"]};
-                border: 1px solid {colors["tab_border"]};
+                background: {colors["multiselect_bg"]} !important;
+                border: 1px solid {colors["card_border"]} !important;
                 border-radius: 6px;
                 padding: 0 0.25rem;
             }}
@@ -1370,31 +1394,57 @@ def main():
                 text-align: right;
                 padding-top: 0.28rem;
             }}
-            .mode-toolbar-gap {{
-                height: 0.08rem;
-            }}
-            .mode-inline-label {{
-                color: {colors["heading"]};
-                font-size: 0.78rem;
+            .header-title-compact {{
+                color: {"#ffffff" if theme_mode == "Dark" else colors["heading"]} !important;
+                font-size: 1.7rem;
                 font-weight: 700;
-                text-align: right;
-                padding-top: 0.28rem;
-                white-space: nowrap;
+                margin: 0;
+                line-height: 1.05;
             }}
             .subtitle-strong {{
                 color: {colors["heading"]};
-                font-size: 0.9rem;
+                font-size: 0.86rem;
                 font-weight: 600;
-                margin-top: 0.1rem;
-                margin-bottom: 1.2rem;
+                margin-top: -0.12rem;
+                margin-bottom: 0.22rem;
+                line-height: 1.2;
+            }}
+            .st-key-header_banner_block,
+            .st-key-explorer_controls_banner_block {{
+                background: {colors["card_bg"]};
+                border: 1px solid {colors["card_border"]};
+                border-radius: 14px;
+                padding: 0.5rem 0.8rem 0.45rem 0.8rem;
+                box-shadow: 0 8px 18px rgba(27, 36, 64, 0.08);
+            }}
+            .st-key-header_banner_block {{
+                margin-bottom: 0.3rem;
+                padding: 0.44rem 0.76rem 1.05rem 0.76rem;
+                position: sticky;
+                top: 0rem;
+                z-index: 940;
+            }}
+            .st-key-header_banner_block [data-testid="stToggle"] {{
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                margin-top: 0.03rem;
+            }}
+            .st-key-header_banner_block [data-testid="stToggle"] label,
+            .st-key-header_banner_block [data-testid="stToggle"] span {{
+                color: {"#ffffff" if theme_mode == "Dark" else colors["heading"]} !important;
+                margin-bottom: 0 !important;
+                font-size: 0.82rem !important;
+            }}
+            .st-key-explorer_controls_banner_block {{
+                margin-top: 0.25rem;
+                position: sticky;
+                top: 14.4rem;
+                z-index: 930;
             }}
             @media (max-width: 760px) {{
-                .mode-inline-label {{
-                    text-align: left;
-                    padding-top: 0.14rem;
-                }}
-                .mode-toolbar-gap {{
-                    height: 0.2rem;
+                .header-title-compact {{
+                    font-size: 1.45rem;
                 }}
                 .stButton > button {{
                     font-size: 0.58rem;
@@ -1410,6 +1460,35 @@ def main():
                 background: {colors["multiselect_bg"]} !important;
                 border: 1px solid {colors["card_border"]} !important;
                 color: {colors["multiselect_text"]} !important;
+            }}
+            [data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="select"] input {{
+                color: {colors["multiselect_placeholder"]} !important;
+                -webkit-text-fill-color: {colors["multiselect_placeholder"]} !important;
+                opacity: 1 !important;
+            }}
+            [data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="select"] input::placeholder,
+            [data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="select"] input::-webkit-input-placeholder {{
+                color: {colors["multiselect_placeholder"]} !important;
+                -webkit-text-fill-color: {colors["multiselect_placeholder"]} !important;
+                opacity: 1 !important;
+            }}
+            [data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="select"] [aria-live="polite"] {{
+                color: {colors["multiselect_placeholder"]} !important;
+            }}
+            [data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="select"] [role="combobox"],
+            [data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="select"] [role="combobox"] * {{
+                color: {colors["multiselect_placeholder"]} !important;
+                -webkit-text-fill-color: {colors["multiselect_placeholder"]} !important;
+                opacity: 1 !important;
+            }}
+            [data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="select"] [class*="placeholder"],
+            [data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="select"] [class*="Placeholder"],
+            [data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="select"] [class*="singleValue"],
+            [data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="select"] [class*="SingleValue"],
+            [data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="select"] div[aria-hidden="true"] {{
+                color: {colors["multiselect_placeholder"]} !important;
+                -webkit-text-fill-color: {colors["multiselect_placeholder"]} !important;
+                opacity: 1 !important;
             }}
             [data-testid="stMultiSelect"] [data-baseweb="tag"] {{
                 background: {colors["multiselect_tag_bg"]} !important;
@@ -1467,8 +1546,12 @@ def main():
             .stTabs [data-baseweb="tab-list"] {{
                 gap: 0.45rem;
                 margin-top: 0.3rem;
-                border-bottom: 2px solid #111827;
+                border-bottom: 2px solid {colors["tab_border"]};
                 padding-bottom: 0.2rem;
+                position: sticky;
+                top: 5.6rem;
+                z-index: 935;
+                background: {colors["bg"]};
             }}
             .stTabs [data-baseweb="tab"] {{
                 height: 2.4rem;
@@ -1483,6 +1566,19 @@ def main():
                 background: {colors["tab_active_bg"]} !important;
                 color: {colors["tab_active_text"]} !important;
                 border: 1px solid {colors["tab_active_bg"]} !important;
+            }}
+            .st-key-metrics_banner_block {{
+                position: sticky;
+                top: 8.8rem;
+                z-index: 932;
+                background: {colors["bg"]};
+                padding-top: 0.18rem;
+                padding-bottom: 0.18rem;
+            }}
+            @media (max-width: 980px) {{
+                .stTabs [data-baseweb="tab-list"] {{ top: 6.1rem; }}
+                .st-key-metrics_banner_block {{ top: 9.5rem; }}
+                .st-key-explorer_controls_banner_block {{ top: 17.7rem; }}
             }}
             .sidebar-version-footer {{
                 color: {colors["heading"]};
@@ -1518,7 +1614,7 @@ def main():
             .ag-theme-streamlit .ag-cell {{
                 border-color: {colors["grid_border"]} !important;
             }}
-            .main .block-container {{ padding-bottom: 1rem; }}
+            .main .block-container {{ padding-top: 0.22rem; padding-bottom: 1rem; }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -1543,47 +1639,32 @@ def main():
                     st.error(f"Dataset initialization failed: {exc}")
         return
 
-    st.markdown(
-        f"<h1 style='color:{colors['heading']}; margin-bottom:0.2rem;'>🧬 PDAC Trial Atlas</h1>",
-        unsafe_allow_html=True,
-    )
-    st.markdown("<div class='mode-toolbar-gap'></div>", unsafe_allow_html=True)
-    mode_spacer_col, mode_lbl_col, normal_col, dark_col = st.columns([6.5, 1.0, 1.25, 1.25], gap="small")
-    with mode_spacer_col:
-        st.markdown("", unsafe_allow_html=True)
-    with mode_lbl_col:
-        st.markdown("<div class='mode-inline-label'>Mode</div>", unsafe_allow_html=True)
-    with normal_col:
-        normal_clicked = st.button(
-            "Normal",
-            key="theme_normal_btn_title",
-            width="stretch",
-            type="secondary",
-        )
-        if normal_clicked and st.session_state.get("theme_mode") != "Normal":
-            st.session_state["theme_mode"] = "Normal"
-            st.rerun()
-    with dark_col:
-        dark_clicked = st.button(
-            "Dark",
-            key="theme_dark_btn_title",
-            width="stretch",
-            type="primary",
-        )
-        if dark_clicked and st.session_state.get("theme_mode") != "Dark":
-            st.session_state["theme_mode"] = "Dark"
-            st.rerun()
+    with st.container(key="header_banner_block"):
+        header_title_col, mode_toggle_col = st.columns([8.05, 1.95], gap="small", vertical_alignment="center")
+        with header_title_col:
+            st.markdown("<h1 class='header-title-compact'>🧬 PDAC Trial Atlas</h1>", unsafe_allow_html=True)
+        with mode_toggle_col:
+            dark_mode_enabled = st.toggle(
+                "Dark mode",
+                value=theme_mode == "Dark",
+                key="theme_mode_toggle_top",
+            )
+            requested_mode = "Dark" if dark_mode_enabled else "Normal"
+            if st.session_state.get("theme_mode") != requested_mode:
+                st.session_state["theme_mode"] = requested_mode
+                st.rerun()
 
-    st.markdown(
-        "<div class='subtitle-strong'>Explore trials and analytics from the current filtered dataset.</div>",
-        unsafe_allow_html=True,
-    )
+        st.markdown(
+            "<div class='subtitle-strong'>Explore trials and analytics from the current filtered dataset.</div>",
+            unsafe_allow_html=True,
+        )
     filtered = apply_filters(df)
 
     tab1, tab2 = st.tabs(["Explorer", "Analytics"])
 
     with tab1:
-        metrics_row(df, filtered)
+        with st.container(key="metrics_banner_block"):
+            metrics_row(df, filtered)
         render_explorer(filtered)
     with tab2:
         render_analytics(filtered)
