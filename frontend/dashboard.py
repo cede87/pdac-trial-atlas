@@ -1432,9 +1432,18 @@ def main():
             }}
             .st-key-header_banner_block [data-testid="stToggle"] label,
             .st-key-header_banner_block [data-testid="stToggle"] span {{
-                color: {"#ffffff" if theme_mode == "Dark" else colors["heading"]} !important;
+                color: {"#cbd5e1" if theme_mode == "Dark" else colors["heading"]} !important;
                 margin-bottom: 0 !important;
                 font-size: 0.82rem !important;
+                opacity: 1 !important;
+                -webkit-text-fill-color: {"#cbd5e1" if theme_mode == "Dark" else colors["heading"]} !important;
+            }}
+            .st-key-header_banner_block [data-testid="stToggle"] p,
+            .st-key-header_banner_block [data-testid="stToggle"] div,
+            .st-key-header_banner_block [data-testid="stToggle"] * {{
+                color: {"#cbd5e1" if theme_mode == "Dark" else colors["heading"]} !important;
+                opacity: 1 !important;
+                -webkit-text-fill-color: {"#cbd5e1" if theme_mode == "Dark" else colors["heading"]} !important;
             }}
             .st-key-explorer_controls_banner_block {{
                 margin-top: 0.25rem;
@@ -1490,6 +1499,7 @@ def main():
                 -webkit-text-fill-color: {colors["multiselect_placeholder"]} !important;
                 opacity: 1 !important;
             }}
+            {"[data-testid='stSidebar'] [data-testid='stMultiSelect'] [data-baseweb='select'] > div *, [data-testid='stSidebar'] [data-testid='stMultiSelect'] [data-baseweb='select'] input::placeholder, [data-testid='stSidebar'] [data-testid='stMultiSelect'] [data-baseweb='select'] input::-webkit-input-placeholder { color: #cbd5e1 !important; -webkit-text-fill-color: #cbd5e1 !important; fill: #cbd5e1 !important; stroke: #cbd5e1 !important; opacity: 1 !important; }" if theme_mode == "Dark" else ""}
             [data-testid="stMultiSelect"] [data-baseweb="tag"] {{
                 background: {colors["multiselect_tag_bg"]} !important;
                 border: 1px solid {colors["tab_border"]} !important;
