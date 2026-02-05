@@ -3,7 +3,7 @@ An open, evidence-graded atlas of pancreatic ductal adenocarcinoma (PDAC) clinic
 
 ## Version
 
-Current release: **v1.2**
+Current release: **v1.3**
 
 ## Disclaimer
 
@@ -23,6 +23,42 @@ No claims are made regarding outcomes, efficacy, safety, or research conclusions
    `streamlit run frontend/dashboard.py`
 
 The dashboard runs 100% local and reads from `pdac_trials.db`.
+Ingestion now merges:
+- ClinicalTrials.gov PDAC trials
+- CTIS (EU Clinical Trials Information System) PDAC trials
+
+During ingestion, PubMed links are enriched by NCT ID lookup (up to 200 trials per run by default).
+To process more in one run:
+`PUBMED_LOOKUP_LIMIT=1000 PYTHONPATH=. python scripts/ingest_clinicaltrials.py`
+
+CTIS controls (optional):
+- `INGEST_CTIS=0` skip CTIS for a run
+- `CTIS_QUERY_TERMS=pancreatic,pancreas,pdac,pancreatic cancer` to set custom CTIS search terms
+- `CTIS_MEDICAL_CONDITION=pancreatic` to force a single CTIS medical condition term
+- `CTIS_MAX_OVERVIEW=200` limit scanned overview rows
+- `CTIS_MAX_TRIALS=100` limit normalized CTIS trials kept
+
+### Identifier model (important)
+
+- `Trial ID` (table column `nct_id`) is always the **primary key row id**:
+  - `NCT...` for native ClinicalTrials.gov rows
+  - `YYYY-XXXXXX-XX-XX` for CTIS-native rows
+- `NCT ID` is displayed in Explorer as a separate convenience column:
+  - `NCT...` when available
+  - `NA` when not available
+- `secondary_id` is still stored internally for lineage/correlation, but is no longer shown in the main table.
+
+### Cross-source de-duplication (CTIS ↔ ClinicalTrials.gov)
+
+During ingestion, if a CTIS trial has `secondary_id = NCT...` and that NCT exists in the dataset:
+
+1. CTIS row is merged into the NCT row.
+2. Source becomes `clinicaltrials.gov+ctis`.
+3. CTIS identifier is kept as alternate id in `secondary_id`.
+4. Source links are merged in `trial_link` (`ctgov | ctis`).
+5. CTIS duplicate row is removed.
+
+This prevents duplicate entries for the same trial across registries.
 
 ## Deploy to Streamlit Community Cloud
 
@@ -58,11 +94,31 @@ Recommended full local validation flow:
 3. `PYTHONPATH=. .venv/bin/python scripts/qa_report.py --strict --limit 20`
 4. `PYTHONPATH=. .venv/bin/python scripts/export_to_csv.py`
 
+Deep validation flow (source integrity + overlap checks):
+
+1. `PYTHONPATH=. INGEST_CTIS=1 PUBMED_LOOKUP_LIMIT=0 .venv/bin/python scripts/ingest_clinicaltrials.py`
+2. `PYTHONPATH=. .venv/bin/python -m unittest discover -s tests -v`
+3. `PYTHONPATH=. .venv/bin/python scripts/qa_report.py --strict --limit 20`
+4. Validate no remaining CTIS↔NCT duplicates:
+
+```sql
+SELECT COUNT(*)
+FROM clinical_trials ctis
+JOIN clinical_trials us ON us.nct_id = ctis.secondary_id
+WHERE ctis.source = 'ctis' AND ctis.secondary_id LIKE 'NCT%';
+```
+
+Expected result: `0`.
+
 ## Storage layout
 
 - `clinical_trials` keeps compact fields for fast filtering/sorting (id, status, dates, class, tags, etc.).
 - `clinical_trial_details` stores long-text fields (conditions, interventions, outcomes, eligibility, locations, summaries/descriptions).
 - Both tables are linked 1:1 via `nct_id`.
+- In the dashboard Quick filters bar, `Origin` lets you filter by source (`clinicaltrials.gov`, `ctis`, or merged `clinicaltrials.gov+ctis`).
+- In Explorer, `Trial ID` is the primary row ID and `NCT ID` is shown explicitly as a separate column.
+- CTIS rows that map to an existing NCT (via CTIS secondary NCT ID) are automatically merged to avoid duplicates.
+- In Explorer, table text selection/copy with mouse is enabled (AgGrid text selection).
 
 ## Data dictionary (current columns)
 
@@ -70,7 +126,10 @@ Below is what each field stores, expected values/patterns, and one quick example
 
 | Column | What it is | Possible values / format |
 |---|---|---|
-| `nct_id` | ClinicalTrials.gov trial ID | `NCT` + digits |
+| `nct_id` | Primary trial key in this dataset | `NCT...` for ClinicalTrials.gov or `YYYY-NNNNNN-NN-NN` for CTIS |
+| `source` | Source registry for the row | `clinicaltrials.gov`, `ctis` |
+| `secondary_id` | Optional alternate registry ID(s) | May include `NCT...` and/or EU CTIS codes |
+| `trial_link` | Direct URL to the source trial page | ClinicalTrials.gov or CTIS URL |
 | `title` | Brief trial title | Free text |
 | `study_type` | Trial type from source | `INTERVENTIONAL`, `OBSERVATIONAL`, `EXPANDED_ACCESS`, `NA` |
 | `study_design` | Normalized design label | `interventional`, `observational`, `expanded_access`, `unknown`, `NA` |
@@ -79,8 +138,9 @@ Below is what each field stores, expected values/patterns, and one quick example
 | `sponsor` | Lead sponsor name | Free text / `NA` |
 | `admission_date` | First registration/posting date used for the study | `YYYY-MM-DD` or `NA` |
 | `last_update_date` | Last trial update date from source | `YYYY-MM-DD` or `NA` |
-| `has_results` | Result availability flag | `yes`, `no`, `NA` |
+| `has_results` | Result availability flag (source + PubMed correction) | `yes`, `no`, `NA` |
 | `results_last_update` | Date linked to results posting/submission | `YYYY-MM-DD` or `NA` |
+| `pubmed_links` | PubMed paper links found by NCT ID lookup | Pipe-separated PubMed URLs or `NA` |
 | `conditions` | Conditions list | Pipe-separated text or `NA` |
 | `interventions` | Intervention entries with type and name | Pipe-separated `TYPE: name` or `NA` |
 | `intervention_types` | **Separated intervention type(s)** | Comma-separated source types (`BEHAVIORAL`, `BIOLOGICAL`, `COMBINATION_PRODUCT`, `DEVICE`, `DIAGNOSTIC_TEST`, `DIETARY_SUPPLEMENT`, `DRUG`, `GENETIC`, `OTHER`, `PROCEDURE`, `RADIATION`) or `NA` |
@@ -92,13 +152,16 @@ Below is what each field stores, expected values/patterns, and one quick example
 | `brief_summary` | Source brief summary | Free text / `NA` |
 | `detailed_description` | Source detailed description | Free text / `NA` |
 | `therapeutic_class` | Normalized therapy class | `chemotherapy`, `immunotherapy`, `targeted_therapy`, `radiotherapy`, `surgical`, `locoregional_therapy`, `registry_program`, `translational_research`, `supportive_care`, `biomarker_diagnostics`, `observational_non_therapeutic`, `context_classified`, `NA` |
-| `focus_tags` | Normalized tag set | Comma-separated tags or `NA` |
-| `pdac_match_reason` | Why the trial matched PDAC filter | `explicit_pdac`, `pdac_acronym`, `adenocarcinoma_pancreas`, `generic_pancreatic_cancer`, `unknown_match`, `NA` |
+| `focus_tags` | Normalized tag set | Comma-separated tags or `NA` (includes CTIS scope flags like `mixed_solid_tumor`, `neuroendocrine_signal`, `hepatobiliary_signal`) |
+| `pdac_match_reason` | Why the trial matched PDAC filter | `explicit_pdac`, `pdac_acronym`, `adenocarcinoma_pancreas`, `generic_pancreatic_cancer`, `generic_pancreatic_oncology`, `unknown_match`, `NA` |
 
 ## One full-row example (all fields)
 
 ```text
 nct_id: NCT03859869
+source: clinicaltrials.gov
+secondary_id: NA
+trial_link: https://clinicaltrials.gov/study/NCT03859869
 title: Pancrelipase Delayed Release Capsules in Subjects With Exocrine Pancreatic Insufficiency Due to Pancreatic Cancer
 study_type: INTERVENTIONAL
 study_design: interventional
@@ -123,3 +186,10 @@ therapeutic_class: supportive_care
 focus_tags: supportive_outcomes,advanced_disease
 pdac_match_reason: generic_pancreatic_cancer
 ```
+
+## Current normalization notes (v1.3)
+
+- CTIS uses multiple search terms by default (not only `pancreatic`) to improve capture.
+- CTIS phases are normalized to `PHASE1`, `PHASE2`, `PHASE3`, `PHASE4` (+ combined values).
+- CTIS date formats are normalized to `YYYY-MM-DD`.
+- Broad-scope oncology signals are tagged in `focus_tags` (e.g., `mixed_solid_tumor`, `neuroendocrine_signal`, `hepatobiliary_signal`) for easier review/triage.

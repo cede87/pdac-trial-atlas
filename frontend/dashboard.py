@@ -37,6 +37,13 @@ def split_csv_values(value: str) -> list[str]:
     return [item.strip() for item in str(value).split(",") if item.strip() and item.strip() != "NA"]
 
 
+def first_pubmed_link(value: str) -> str:
+    if not value or str(value).strip() == "NA":
+        return "NA"
+    links = [item.strip() for item in str(value).split("|") if item.strip()]
+    return links[0] if links else "NA"
+
+
 def _year_from_date(value: str) -> str:
     if not value:
         return ""
@@ -96,11 +103,31 @@ def _build_query_mask(df: pd.DataFrame, query: str) -> pd.Series:
 
 
 def build_display_df(filtered: pd.DataFrame) -> pd.DataFrame:
+    display_src = filtered.copy()
+    display_src["nct_ref_id"] = display_src.apply(
+        lambda row: (
+            row["nct_id"]
+            if str(row.get("nct_id", "")).startswith("NCT")
+            else next(
+                (
+                    part.strip()
+                    for part in str(row.get("secondary_id", "")).split(",")
+                    if part.strip().startswith("NCT")
+                ),
+                "NA",
+            )
+        ),
+        axis=1,
+    )
+
     return (
-        filtered.sort_values("nct_id", kind="stable")
+        display_src.sort_values("nct_id", kind="stable")
         [
             [
                 "nct_id",
+                "nct_ref_id",
+                "source",
+                "trial_link",
                 "title",
                 "study_type",
                 "study_design",
@@ -112,6 +139,7 @@ def build_display_df(filtered: pd.DataFrame) -> pd.DataFrame:
                 "last_update_date",
                 "has_results",
                 "results_last_update",
+                "pubmed_links",
                 "conditions",
                 "interventions",
                 "intervention_types",
@@ -130,6 +158,9 @@ def build_display_df(filtered: pd.DataFrame) -> pd.DataFrame:
         .rename(
             columns={
                 "nct_id": "Trial ID",
+                "nct_ref_id": "NCT ID",
+                "source": "Source",
+                "trial_link": "Trial Link",
                 "title": "Title",
                 "study_type": "Study Type",
                 "study_design": "Study Design",
@@ -141,6 +172,7 @@ def build_display_df(filtered: pd.DataFrame) -> pd.DataFrame:
                 "last_update_date": "Last Update",
                 "has_results": "Results",
                 "results_last_update": "Results Update",
+                "pubmed_links": "Paper Link",
                 "conditions": "Conditions",
                 "interventions": "Interventions",
                 "intervention_types": "Intervention Types",
@@ -166,44 +198,92 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
 
     conn = sqlite3.connect(DB_PATH)
     try:
-        df = pd.read_sql_query(
-            """
-            SELECT
-                c.nct_id,
-                c.title,
-                c.study_type,
-                c.study_design,
-                c.phase,
-                c.status,
-                c.sponsor,
-                c.admission_date,
-                c.last_update_date,
-                c.has_results,
-                c.results_last_update,
-                c.intervention_types,
-                c.therapeutic_class,
-                c.focus_tags,
-                c.pdac_match_reason,
-                d.conditions,
-                d.interventions,
-                d.primary_outcomes,
-                d.secondary_outcomes,
-                d.inclusion_criteria,
-                d.exclusion_criteria,
-                d.locations,
-                d.brief_summary,
-                d.detailed_description
-            FROM clinical_trials c
-            LEFT JOIN clinical_trial_details d ON d.nct_id = c.nct_id
-            ORDER BY c.nct_id
-            """,
-            conn,
-        )
+        try:
+            df = pd.read_sql_query(
+                """
+                SELECT
+                    c.nct_id,
+                    c.source,
+                    c.secondary_id,
+                    c.trial_link,
+                    c.title,
+                    c.study_type,
+                    c.study_design,
+                    c.phase,
+                    c.status,
+                    c.sponsor,
+                    c.admission_date,
+                    c.last_update_date,
+                    c.has_results,
+                    c.results_last_update,
+                    c.pubmed_links,
+                    c.intervention_types,
+                    c.therapeutic_class,
+                    c.focus_tags,
+                    c.pdac_match_reason,
+                    d.conditions,
+                    d.interventions,
+                    d.primary_outcomes,
+                    d.secondary_outcomes,
+                    d.inclusion_criteria,
+                    d.exclusion_criteria,
+                    d.locations,
+                    d.brief_summary,
+                    d.detailed_description
+                FROM clinical_trials c
+                LEFT JOIN clinical_trial_details d ON d.nct_id = c.nct_id
+                ORDER BY c.nct_id
+                """,
+                conn,
+            )
+        except Exception as exc:
+            if "pubmed_links" not in str(exc).lower():
+                raise
+            df = pd.read_sql_query(
+                """
+                SELECT
+                    c.nct_id,
+                    c.source,
+                    c.secondary_id,
+                    c.trial_link,
+                    c.title,
+                    c.study_type,
+                    c.study_design,
+                    c.phase,
+                    c.status,
+                    c.sponsor,
+                    c.admission_date,
+                    c.last_update_date,
+                    c.has_results,
+                    c.results_last_update,
+                    c.intervention_types,
+                    c.therapeutic_class,
+                    c.focus_tags,
+                    c.pdac_match_reason,
+                    d.conditions,
+                    d.interventions,
+                    d.primary_outcomes,
+                    d.secondary_outcomes,
+                    d.inclusion_criteria,
+                    d.exclusion_criteria,
+                    d.locations,
+                    d.brief_summary,
+                    d.detailed_description
+                FROM clinical_trials c
+                LEFT JOIN clinical_trial_details d ON d.nct_id = c.nct_id
+                ORDER BY c.nct_id
+                """,
+                conn,
+            )
+            df["pubmed_links"] = ""
     finally:
         conn.close()
 
     expected_cols = [
         "nct_id",
+        "source",
+        "secondary_id",
+        "trial_link",
         "title",
         "study_type",
         "study_design",
@@ -214,6 +294,7 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
         "last_update_date",
         "has_results",
         "results_last_update",
+        "pubmed_links",
         "conditions",
         "interventions",
         "intervention_types",
@@ -240,6 +321,30 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
     )
     df.loc[inferred, "has_results"] = "yes"
     df.loc[df["has_results"].str.strip() == "", "has_results"] = "no"
+    df["pubmed_links"] = df["pubmed_links"].fillna("").astype(str).str.strip()
+    df.loc[df["pubmed_links"] == "", "pubmed_links"] = "NA"
+    df.loc[
+        (df["pubmed_links"] != "NA")
+        & (~df["has_results"].str.strip().str.lower().eq("yes")),
+        "has_results",
+    ] = "yes"
+
+    df["source"] = df["source"].fillna("").astype(str).str.strip().str.lower()
+    df.loc[df["source"] == "", "source"] = df["nct_id"].apply(
+        lambda value: "clinicaltrials.gov" if str(value).startswith("NCT") else "ctis"
+    )
+    df["secondary_id"] = df["secondary_id"].fillna("").astype(str).str.strip()
+    df["trial_link"] = df["trial_link"].fillna("").astype(str).str.strip()
+    df.loc[
+        (df["trial_link"] == "") & (df["nct_id"].astype(str).str.startswith("NCT")),
+        "trial_link",
+    ] = df["nct_id"].apply(lambda value: f"https://clinicaltrials.gov/study/{value}")
+    df.loc[
+        (df["trial_link"] == "") & (~df["nct_id"].astype(str).str.startswith("NCT")),
+        "trial_link",
+    ] = df["nct_id"].apply(
+        lambda value: f"https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en&EUCT={value}"
+    )
 
     df = df[expected_cols]
     return df.fillna("")
@@ -267,6 +372,9 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
 
     sponsor_options = sorted([x for x in df["sponsor"].unique() if x])
     selected_sponsors = st.sidebar.multiselect("Sponsor", sponsor_options)
+
+    source_options = sorted([x for x in df["source"].unique() if x])
+    selected_sources = st.sidebar.multiselect("Origin", source_options)
 
     intervention_type_options = sorted(
         {
@@ -307,6 +415,8 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
         out = out[out["status"].isin(selected_statuses)]
     if selected_sponsors:
         out = out[out["sponsor"].isin(selected_sponsors)]
+    if selected_sources:
+        out = out[out["source"].isin(selected_sources)]
     if selected_intervention_types:
         selected_set = set(selected_intervention_types)
         out = out[
@@ -402,15 +512,19 @@ def render_explorer(filtered: pd.DataFrame):
         st.info("No trials match the current filters.")
         return
 
-    all_columns = list(full_display_df.columns)
+    hidden_columns = {"Trial Link"}
+    all_columns = [c for c in full_display_df.columns if c not in hidden_columns]
     default_columns = [
         "Trial ID",
+        "NCT ID",
+        "Source",
         "Title",
         "Study Type",
         "Phase",
         "Status",
         "Sponsor",
         "Therapeutic Class",
+        "Paper Link",
         "Intervention Types",
         "Admission Date",
         "Last Update",
@@ -430,7 +544,9 @@ def render_explorer(filtered: pd.DataFrame):
         selected_columns = default_columns
     if "Trial ID" not in selected_columns:
         selected_columns = ["Trial ID"] + selected_columns
-    display_df = full_display_df[selected_columns].copy()
+    display_df = full_display_df[selected_columns + ["Trial Link"]].copy()
+    if "Paper Link" in display_df.columns:
+        display_df["Paper Link"] = display_df["Paper Link"].apply(first_pubmed_link)
     with export_col:
         st.markdown("<div style='height:1.95rem;'></div>", unsafe_allow_html=True)
         st.download_button(
@@ -464,6 +580,8 @@ def render_explorer(filtered: pd.DataFrame):
                 sortable=True,
                 filter=True,
                 resizable=True,
+                flex=1,
+                minWidth=115,
                 wrapText=False,
                 autoHeight=False,
                 tooltipValueGetter=JsCode(
@@ -480,7 +598,10 @@ def render_explorer(filtered: pd.DataFrame):
                 },
             )
             column_help = {
-                "Trial ID": "ClinicalTrials.gov identifier (opens source record).",
+                "Trial ID": "Trial identifier from the original source (opens source record).",
+                "NCT ID": "ClinicalTrials.gov NCT identifier when available (NA otherwise).",
+                "Source": "Registry source for this trial row.",
+                "Trial Link": "Canonical URL for opening the trial in its source registry.",
                 "Title": "Official brief trial title.",
                 "Study Type": "Interventional / Observational / Expanded access.",
                 "Study Design": "Normalized design classification.",
@@ -492,6 +613,7 @@ def render_explorer(filtered: pd.DataFrame):
                 "Last Update": "Latest update date reported.",
                 "Results": "Whether source indicates result availability.",
                 "Results Update": "Date associated with results publication/update.",
+                "Paper Link": "First linked PubMed paper found by NCT.",
                 "Conditions": "Reported study conditions.",
                 "Interventions": "Interventions with type and name.",
                 "Intervention Types": "Unique intervention type(s) only.",
@@ -515,44 +637,63 @@ def render_explorer(filtered: pd.DataFrame):
             )
             gb.configure_column(
                 "Trial ID",
-                width=130,
+                minWidth=130,
+                maxWidth=170,
                 pinned="left",
                 cellStyle={"color": "#2f7a66", "textDecoration": "underline", "fontWeight": 600},
             )
+            if "Trial Link" in display_df.columns:
+                gb.configure_column("Trial Link", hide=True)
             if "Title" in display_df.columns:
-                gb.configure_column("Title", width=520)
+                gb.configure_column("Title", minWidth=260, flex=2.2)
+            if "Source" in display_df.columns:
+                gb.configure_column("Source", minWidth=115, maxWidth=170)
+            if "NCT ID" in display_df.columns:
+                gb.configure_column(
+                    "NCT ID",
+                    minWidth=130,
+                    maxWidth=180,
+                    cellStyle={"color": "#2f7a66", "textDecoration": "underline", "fontWeight": 600},
+                )
             if "Admission Date" in display_df.columns:
-                gb.configure_column("Admission Date", width=140)
+                gb.configure_column("Admission Date", minWidth=125, maxWidth=170)
             if "Last Update" in display_df.columns:
-                gb.configure_column("Last Update", width=140)
+                gb.configure_column("Last Update", minWidth=125, maxWidth=170)
             if "Results" in display_df.columns:
-                gb.configure_column("Results", width=95)
+                gb.configure_column("Results", minWidth=90, maxWidth=115)
             if "Results Update" in display_df.columns:
-                gb.configure_column("Results Update", width=145)
+                gb.configure_column("Results Update", minWidth=130, maxWidth=180)
+            if "Paper Link" in display_df.columns:
+                gb.configure_column(
+                    "Paper Link",
+                    minWidth=190,
+                    flex=1.35,
+                    cellStyle={"color": "#2f7a66", "textDecoration": "underline"},
+                )
             if "Intervention Types" in display_df.columns:
-                gb.configure_column("Intervention Types", width=155)
+                gb.configure_column("Intervention Types", minWidth=145, maxWidth=210)
             if "Conditions" in display_df.columns:
-                gb.configure_column("Conditions", width=260)
+                gb.configure_column("Conditions", minWidth=200, flex=1.4)
             if "Interventions" in display_df.columns:
-                gb.configure_column("Interventions", width=300)
+                gb.configure_column("Interventions", minWidth=220, flex=1.5)
             if "Primary Outcomes" in display_df.columns:
-                gb.configure_column("Primary Outcomes", width=320)
+                gb.configure_column("Primary Outcomes", minWidth=230, flex=1.6)
             if "Secondary Outcomes" in display_df.columns:
-                gb.configure_column("Secondary Outcomes", width=320)
+                gb.configure_column("Secondary Outcomes", minWidth=230, flex=1.6)
             if "Inclusion Criteria" in display_df.columns:
-                gb.configure_column("Inclusion Criteria", width=330)
+                gb.configure_column("Inclusion Criteria", minWidth=240, flex=1.7)
             if "Exclusion Criteria" in display_df.columns:
-                gb.configure_column("Exclusion Criteria", width=330)
+                gb.configure_column("Exclusion Criteria", minWidth=240, flex=1.7)
             if "Locations" in display_df.columns:
-                gb.configure_column("Locations", width=300)
+                gb.configure_column("Locations", minWidth=210, flex=1.3)
             if "Brief Summary" in display_df.columns:
-                gb.configure_column("Brief Summary", width=340)
+                gb.configure_column("Brief Summary", minWidth=240, flex=1.8)
             if "Detailed Description" in display_df.columns:
-                gb.configure_column("Detailed Description", width=340)
+                gb.configure_column("Detailed Description", minWidth=240, flex=1.8)
             if "Tags" in display_df.columns:
-                gb.configure_column("Tags", width=260)
+                gb.configure_column("Tags", minWidth=170, flex=1.2)
             if "Match Reason" in display_df.columns:
-                gb.configure_column("Match Reason", width=180)
+                gb.configure_column("Match Reason", minWidth=150, maxWidth=230)
             gb.configure_grid_options(
                 rowHeight=34,
                 tooltipShowDelay=100,
@@ -560,32 +701,97 @@ def render_explorer(filtered: pd.DataFrame):
                     """
                     function(e) {
                         if (e.colDef.field === "Trial ID" && e.value) {
-                            window.open("https://clinicaltrials.gov/study/" + e.value, "_blank");
+                            const rawLink = e.data && e.data["Trial Link"] ? String(e.data["Trial Link"]) : "";
+                            const links = rawLink.includes("|")
+                                ? rawLink.split("|").map(x => x.trim()).filter(Boolean)
+                                : (rawLink.trim() ? [rawLink.trim()] : []);
+                            const source = e.data && e.data["Source"] ? String(e.data["Source"]).toLowerCase() : "";
+                            let trialLink = "";
+                            // For merged rows show the non-NCT source from Trial ID, keeping NCT link in NCT ID.
+                            if (source === "clinicaltrials.gov+ctis" && links.length > 1) {
+                                trialLink = links[1];
+                            } else if (links.length > 0) {
+                                trialLink = links[0];
+                            }
+                            if (trialLink) {
+                                window.open(trialLink, "_blank");
+                            } else {
+                                const trialId = String(e.value || "");
+                                const fallback = trialId.startsWith("NCT")
+                                    ? "https://clinicaltrials.gov/study/" + trialId
+                                    : "https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en&EUCT=" + encodeURIComponent(trialId);
+                                window.open(fallback, "_blank");
+                            }
+                        }
+                        if (e.colDef.field === "NCT ID" && e.value && e.value !== "NA") {
+                            window.open("https://clinicaltrials.gov/study/" + String(e.value), "_blank");
+                        }
+                        if (e.colDef.field === "Paper Link" && e.value && e.value !== "NA") {
+                            window.open(e.value, "_blank");
                         }
                     }
                     """
                 ),
+                onFirstDataRendered=JsCode(
+                    """
+                    function(params) {
+                        params.api.sizeColumnsToFit();
+                    }
+                    """
+                ),
+                onGridSizeChanged=JsCode(
+                    """
+                    function(params) {
+                        params.api.sizeColumnsToFit();
+                    }
+                    """
+                ),
+                enableCellTextSelection=True,
+                ensureDomOrder=True,
             )
 
             grid_css = {
-                ".ag-root-wrapper, .ag-root, .ag-body-viewport, .ag-center-cols-viewport": {
+                ".ag-root-wrapper": {
+                    "background-color": ("#111827 !important" if is_dark else "#ffffff !important"),
+                    "border": ("1px solid #64748b !important" if is_dark else "1px solid #cbd5e1 !important"),
+                    "border-radius": "6px !important",
+                    "overflow": "hidden !important",
+                },
+                ".ag-root, .ag-body-viewport, .ag-center-cols-viewport": {
                     "background-color": ("#111827 !important" if is_dark else "#ffffff !important"),
                     "color": ("#e5e7eb !important" if is_dark else "#1f2937 !important"),
                 },
-                ".ag-header, .ag-header-viewport, .ag-header-container": {
-                    "background-color": ("#1f2937 !important" if is_dark else "#f8fafc !important"),
+                ".ag-header, .ag-header-viewport, .ag-header-container, .ag-pinned-left-header": {
+                    "background-color": ("#020617 !important" if is_dark else "#eef2f7 !important"),
                     "color": ("#e5e7eb !important" if is_dark else "#1f2937 !important"),
+                    "border-top": "none !important",
                 },
                 ".ag-header-row, .ag-header-cell": {
-                    "border-bottom": ("1px solid #374151 !important" if is_dark else "1px solid #e5e7eb !important"),
+                    "border-bottom": ("3px solid #64748b !important" if is_dark else "2px solid #cbd5e1 !important"),
+                    "border-top": "none !important",
                 },
                 ".ag-header-cell": {
-                    "border-right": ("1px solid #374151 !important" if is_dark else "1px solid #e5e7eb !important"),
+                    "border-right": ("1px solid #64748b !important" if is_dark else "1px solid #cbd5e1 !important"),
+                },
+                ".ag-header-cell-label, .ag-header-cell-text": {
+                    "font-weight": "700 !important",
+                    "letter-spacing": "0.015em !important",
+                    "text-transform": "none !important",
+                    "color": ("#f8fafc !important" if is_dark else "#1f2937 !important"),
                 },
                 ".ag-header-cell, .ag-cell, .ag-row, .ag-row-odd, .ag-row-even": {
                     "background-color": ("#111827 !important" if is_dark else "#ffffff !important"),
                     "color": ("#e5e7eb !important" if is_dark else "#1f2937 !important"),
                     "border-color": ("#374151 !important" if is_dark else "#e5e7eb !important"),
+                },
+                ".ag-row-odd .ag-cell": {
+                    "background-color": ("#111827 !important" if is_dark else "#ffffff !important"),
+                },
+                ".ag-row-even .ag-cell": {
+                    "background-color": ("#0b1220 !important" if is_dark else "#f8fafc !important"),
+                },
+                ".ag-row-hover .ag-cell, .ag-row-hover.ag-row-even .ag-cell, .ag-row-hover.ag-row-odd .ag-cell": {
+                    "background-color": ("#1f2937 !important" if is_dark else "#eef2f7 !important"),
                 },
                 ".ag-paging-panel": {
                     "background-color": ("#111827 !important" if is_dark else "#ffffff !important"),
@@ -634,7 +840,7 @@ def render_explorer(filtered: pd.DataFrame):
                 custom_css=grid_css,
                 update_mode="NO_UPDATE",
                 theme="streamlit",
-                fit_columns_on_grid_load=False,
+                fit_columns_on_grid_load=True,
                 height=980,
                 key=f"aggrid_{theme_mode}",
             )
@@ -650,18 +856,42 @@ def render_explorer(filtered: pd.DataFrame):
     end = min(start + page_size, total_rows)
 
     page_df = display_df.iloc[start:end].copy()
-    page_df["Trial ID"] = page_df["Trial ID"].apply(
-        lambda nct: f"https://clinicaltrials.gov/study/{nct}" if nct else ""
+    page_df["Trial ID"] = page_df.apply(
+        lambda row: (
+            str(row["Trial Link"]).split("|")[0].strip()
+            if row.get("Trial Link")
+            else (
+                f"https://clinicaltrials.gov/study/{row['Trial ID']}"
+                if str(row["Trial ID"]).startswith("NCT")
+                else f"https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en&EUCT={row['Trial ID']}"
+            )
+        ),
+        axis=1,
     )
+    if "Trial Link" in page_df.columns:
+        page_df = page_df.drop(columns=["Trial Link"])
+    if "NCT ID" in page_df.columns:
+        page_df["NCT ID"] = page_df["NCT ID"].apply(
+            lambda v: f"https://clinicaltrials.gov/study/{v}" if v and v != "NA" else ""
+        )
+    if "Paper Link" in page_df.columns:
+        page_df["Paper Link"] = page_df["Paper Link"].apply(
+            lambda link: link if link and link != "NA" else ""
+        )
     st.caption(f"Showing rows {start + 1:,}-{end:,} of {total_rows:,}")
+    column_cfg = {
+        "Trial ID": st.column_config.LinkColumn("Trial ID", display_text="Open trial"),
+    }
+    if "NCT ID" in page_df.columns:
+        column_cfg["NCT ID"] = st.column_config.LinkColumn("NCT ID", display_text="NCT")
+    if "Paper Link" in page_df.columns:
+        column_cfg["Paper Link"] = st.column_config.LinkColumn("Paper Link", display_text="PubMed")
     st.dataframe(
         page_df,
         width="stretch",
         height=980,
         hide_index=True,
-        column_config={
-            "Trial ID": st.column_config.LinkColumn("Trial ID", display_text=r".*/(NCT\d+)$"),
-        },
+        column_config=column_cfg,
     )
 
 
@@ -1299,7 +1529,7 @@ def main():
     if df.empty:
         st.warning("No local dataset found yet.")
         st.caption(
-            "For Streamlit Cloud, use the button below to initialize data from ClinicalTrials.gov."
+            "For Streamlit Cloud, use the button below to initialize data from ClinicalTrials.gov and CTIS."
         )
         if st.button("Initialize dataset", type="primary", width="content"):
             with st.spinner("Fetching and building local dataset. This can take a minute..."):

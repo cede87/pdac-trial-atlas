@@ -23,6 +23,7 @@ from typing import List, Dict, Optional, Tuple
 
 
 BASE_URL = "https://clinicaltrials.gov/api/v2/studies"
+PUBMED_ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 
 
 def _pick_date(module: Dict, keys: List[str]) -> str:
@@ -83,6 +84,41 @@ def _extract_result_flags(protocol: Dict, derived: Dict, status_mod: Dict) -> Di
 
 def _join_non_empty(values: List[str], sep: str = " | ") -> str:
     return sep.join([str(v).strip() for v in values if str(v).strip()])
+
+
+def _extract_pubmed_pmids(payload: Dict) -> List[str]:
+    """
+    Extract PMID list from ESearch JSON response.
+    """
+    id_list = payload.get("esearchresult", {}).get("idlist", []) or []
+    return [str(x).strip() for x in id_list if str(x).strip()]
+
+
+def _fetch_pubmed_links_by_nct(nct_id: str, max_links: int = 3) -> str:
+    """
+    Search PubMed by NCT identifier (secondary source ID) and return
+    pipe-separated PubMed URLs.
+    """
+    if not nct_id:
+        return ""
+    try:
+        resp = requests.get(
+            PUBMED_ESEARCH_URL,
+            params={
+                "db": "pubmed",
+                "retmode": "json",
+                "retmax": max_links,
+                "term": f"{nct_id}[si]",
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        pmids = _extract_pubmed_pmids(resp.json())
+        links = [f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" for pmid in pmids]
+        return _join_non_empty(links)
+    except Exception:
+        # PubMed lookup is best-effort and should never break ingestion.
+        return ""
 
 
 def _extract_interventions(arms_mod: Dict) -> Tuple[str, str]:
@@ -421,6 +457,10 @@ def fetch_trials_pancreas(max_records: Optional[int] = None) -> List[Dict]:
             params["pageToken"] = next_page_token
 
         resp = requests.get(BASE_URL, params=params, timeout=30)
+        if resp.status_code == 400 and next_page_token:
+            # ClinicalTrials.gov occasionally returns a 400 for a stale pagination token.
+            # We stop pagination gracefully and keep already collected rows.
+            break
         resp.raise_for_status()
 
         data = resp.json()
@@ -482,6 +522,9 @@ def fetch_trials_pancreas(max_records: Optional[int] = None) -> List[Dict]:
             all_studies.append(
                 {
                     "nct_id": nct_id,
+                    "source": "clinicaltrials.gov",
+                    "secondary_id": "",
+                    "trial_link": f"https://clinicaltrials.gov/study/{nct_id}",
                     "title": title,
                     "study_type": study_type,
                     "phase": (
@@ -499,6 +542,7 @@ def fetch_trials_pancreas(max_records: Optional[int] = None) -> List[Dict]:
                     "last_update_date": last_update_date,
                     "has_results": has_results,
                     "results_last_update": result_flags["results_last_update"],
+                    "pubmed_links": "",
                     "conditions": _join_non_empty(cond_mod.get("conditions", []) or []),
                     "interventions": interventions,
                     "intervention_types": intervention_types,
