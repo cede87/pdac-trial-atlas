@@ -17,11 +17,11 @@ Notes:
 - Historical EU trials in the legacy EudraCT register are not included in this export.
 
 ## Number of trials
-- Total rows: 2487
+- Total rows: 2486
 
 - By source:
 - clinicaltrials.gov: 2332
-- ctis: 120
+- ctis: 119
 - clinicaltrials.gov+ctis: 35
 
 ## Files
