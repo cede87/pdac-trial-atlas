@@ -1,12 +1,11 @@
-name: Classification Quality
+name: Dataset Refresh
 
 on:
   push:
     branches: ["main"]
-  pull_request:
 
 jobs:
-  quality:
+  refresh:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,5 +21,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run classification tests
-        run: PYTHONPATH=. python -m unittest discover -s tests -v
+      - name: Build fresh dataset
+        run: PYTHONPATH=. python scripts/ingest_clinicaltrials.py
+
+      - name: Run QA report
+        run: PYTHONPATH=. python scripts/qa_report.py --limit 12
