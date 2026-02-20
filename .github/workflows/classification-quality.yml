@@ -26,7 +26,9 @@ jobs:
         run: PYTHONPATH=. python -m unittest discover -s tests -v
 
       - name: Build fresh dataset
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: PYTHONPATH=. python scripts/ingest_clinicaltrials.py
 
       - name: Run QA report
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: PYTHONPATH=. python scripts/qa_report.py --limit 12
