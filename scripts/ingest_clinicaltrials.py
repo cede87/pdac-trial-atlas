@@ -20,6 +20,7 @@ import requests
 from typing import Optional
 from ingest.clinicaltrials import fetch_trials_pancreas, _fetch_pubmed_links_by_nct
 from ingest.ctis import fetch_trials_ctis_pdac
+from ingest.euctr import fetch_trials_euctr_pdac
 from db.session import SessionLocal, init_db
 from db.models import ClinicalTrial, ClinicalTrialDetails, ClinicalTrialPublication
 from sqlalchemy import text
@@ -1652,6 +1653,7 @@ def run():
     ctgov_studies = fetch_trials_pancreas()
 
     include_ctis = os.getenv("INGEST_CTIS", "1").strip().lower() not in {"0", "false", "no"}
+    include_euctr = os.getenv("INGEST_EUCTR", "1").strip().lower() not in {"0", "false", "no"}
     ctis_studies = []
     if include_ctis:
         print("Fetching PDAC-related trials from CTIS (EU) ...")
@@ -1672,7 +1674,26 @@ def run():
             query_terms=ctis_query_terms,
             page_size=ctis_page_size,
         )
-    studies = ctgov_studies + ctis_studies
+    euctr_studies = []
+    if include_euctr:
+        print("Fetching PDAC-related trials from EUCTR (legacy EU register) ...")
+        euctr_max_trials = os.getenv("EUCTR_MAX_TRIALS")
+        euctr_max_pages = os.getenv("EUCTR_MAX_PAGES")
+        euctr_sleep = float(os.getenv("EUCTR_PAGE_SLEEP", "0.25"))
+        euctr_query_terms_raw = os.getenv("EUCTR_QUERY_TERMS", "").strip()
+        euctr_query_terms = (
+            [term.strip() for term in euctr_query_terms_raw.split(",") if term.strip()]
+            if euctr_query_terms_raw
+            else None
+        )
+        euctr_studies = fetch_trials_euctr_pdac(
+            max_trials=int(euctr_max_trials) if euctr_max_trials else None,
+            max_pages=int(euctr_max_pages) if euctr_max_pages else None,
+            query_terms=euctr_query_terms,
+            sleep_seconds=euctr_sleep,
+        )
+
+    studies = ctgov_studies + ctis_studies + euctr_studies
 
     inserted = 0
     updated = 0
@@ -1779,6 +1800,8 @@ def run():
     print(f"ClinicalTrials.gov rows: {len(ctgov_studies)}")
     if include_ctis:
         print(f"CTIS rows: {len(ctis_studies)}")
+    if include_euctr:
+        print(f"EUCTR rows: {len(euctr_studies)}")
     print(f"New trials inserted: {inserted}")
     print(f"Existing trials updated: {updated}")
     print(f"CTIS↔NCT overlaps merged: {merged_ctis}")

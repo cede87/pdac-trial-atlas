@@ -398,7 +398,16 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
         "trial_link",
     ] = df["nct_id"].apply(lambda value: f"https://clinicaltrials.gov/study/{value}")
     df.loc[
-        missing_trial_link & (~df["nct_id"].astype(str).str.startswith("NCT")),
+        missing_trial_link
+        & (df["source"].astype(str).str.lower() == "euctr"),
+        "trial_link",
+    ] = df["nct_id"].apply(
+        lambda value: f"https://www.clinicaltrialsregister.eu/ctr-search/search?query=eudract_number:{value}"
+    )
+    df.loc[
+        missing_trial_link
+        & (~df["nct_id"].astype(str).str.startswith("NCT"))
+        & (df["source"].astype(str).str.lower() != "euctr"),
         "trial_link",
     ] = df["nct_id"].apply(
         lambda value: f"https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en&EUCT={value}"

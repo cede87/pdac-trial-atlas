@@ -31,7 +31,7 @@ KNOWN_INTERVENTION_TYPES = {
     "PROCEDURE",
     "RADIATION",
 }
-ALLOWED_SOURCES = {"clinicaltrials.gov", "ctis", "clinicaltrials.gov+ctis", "na"}
+ALLOWED_SOURCES = {"clinicaltrials.gov", "ctis", "clinicaltrials.gov+ctis", "euctr", "na"}
 DEFAULT_MIN_PUBDATE_COVERAGE_OF_PUBMED = 0.90
 DEFAULT_MIN_PRIMARY_COMPLETION_COVERAGE = 0.50
 DEFAULT_MAX_UNKNOWN_EVIDENCE_RATIO = 0.80
@@ -81,6 +81,8 @@ def _link_matches_source(source: str, link: str) -> bool:
             "clinicaltrials.gov/study/" in url
             and "euclinicaltrials.eu/search-for-clinical-trials/" in url
         )
+    if src == "euctr":
+        return "clinicaltrialsregister.eu/ctr-search/" in url
     return False
 
 

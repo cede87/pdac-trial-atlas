@@ -90,6 +90,13 @@ CTIS controls (optional):
 - `CTIS_MAX_OVERVIEW=200` limit scanned overview rows
 - `CTIS_MAX_TRIALS=100` limit normalized CTIS trials kept
 
+EUCTR (legacy EU register) controls (optional):
+- `INGEST_EUCTR=0` skip EUCTR ingestion for a run
+- `EUCTR_QUERY_TERMS=pancreatic,pancreas,pdac,pancreatic cancer` to set custom EUCTR search terms
+- `EUCTR_MAX_PAGES=50` limit fetched EUCTR result pages per term
+- `EUCTR_MAX_TRIALS=1000` limit normalized EUCTR trials kept
+- `EUCTR_PAGE_SLEEP=0.25` sleep (seconds) between EUCTR pages to avoid throttling
+
 ### Identifier model (important)
 
 - `Trial ID` (table column `nct_id`) is always the **primary key row id**:
