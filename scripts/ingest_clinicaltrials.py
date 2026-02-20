@@ -10,7 +10,7 @@ All semantic classification is done upstream (ingest modules).
 import os
 import re
 import sqlite3
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, timezone
 from difflib import SequenceMatcher
 import xml.etree.ElementTree as ET
 
@@ -460,6 +460,135 @@ def _build_title_query(title: str, sponsor: str, admission_date: str) -> str:
     return query
 
 
+def _serialize_pmids(pmids: list[str]) -> str:
+    return ",".join([str(p).strip() for p in pmids if str(p).strip().isdigit()])
+
+
+def _deserialize_pmids(value: str) -> list[str]:
+    return [token.strip() for token in str(value or "").split(",") if token.strip().isdigit()]
+
+
+def _load_pubmed_search_cache(session) -> dict[str, list[str]]:
+    rows = session.execute(text("SELECT query, pmids FROM pubmed_search_cache")).fetchall()
+    return {_clean(query): _deserialize_pmids(pmids) for query, pmids in rows if _clean(query)}
+
+
+def _load_pubmed_summary_cache(session) -> dict[str, dict[str, str]]:
+    rows = session.execute(
+        text(
+            """
+            SELECT pmid, publication_date_raw, publication_title, journal, doi
+            FROM pubmed_summary_cache
+            """
+        )
+    ).fetchall()
+    cache = {}
+    for pmid, publication_date_raw, publication_title, journal, doi in rows:
+        key = _clean(pmid)
+        if not key:
+            continue
+        cache[key] = {
+            "publication_date_raw": _clean(publication_date_raw),
+            "publication_title": _clean(publication_title),
+            "journal": _clean(journal),
+            "doi": _clean(doi),
+        }
+    return cache
+
+
+def _persist_pubmed_search_cache(session, cache: dict[str, list[str]], keys: set[str]) -> None:
+    if not keys:
+        return
+    for query in keys:
+        session.execute(
+            text(
+                """
+                INSERT INTO pubmed_search_cache(query, pmids, updated_at)
+                VALUES(:query, :pmids, :updated_at)
+                ON CONFLICT(query) DO UPDATE SET
+                    pmids=excluded.pmids,
+                    updated_at=excluded.updated_at
+                """
+            ),
+            {
+                "query": query,
+                "pmids": _serialize_pmids(cache.get(query, [])),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
+
+def _persist_pubmed_summary_cache(
+    session,
+    cache: dict[str, dict[str, str]],
+    pmids: set[str],
+) -> None:
+    if not pmids:
+        return
+    for pmid in pmids:
+        row = cache.get(pmid, {}) or {}
+        session.execute(
+            text(
+                """
+                INSERT INTO pubmed_summary_cache(
+                    pmid, publication_date_raw, publication_title, journal, doi, updated_at
+                )
+                VALUES(:pmid, :publication_date_raw, :publication_title, :journal, :doi, :updated_at)
+                ON CONFLICT(pmid) DO UPDATE SET
+                    publication_date_raw=excluded.publication_date_raw,
+                    publication_title=excluded.publication_title,
+                    journal=excluded.journal,
+                    doi=excluded.doi,
+                    updated_at=excluded.updated_at
+                """
+            ),
+            {
+                "pmid": pmid,
+                "publication_date_raw": _clean(row.get("publication_date_raw")),
+                "publication_title": _clean(row.get("publication_title")),
+                "journal": _clean(row.get("journal")),
+                "doi": _clean(row.get("doi")),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
+
+def _has_recent_source_update(trial: ClinicalTrial, refresh_days: int) -> bool:
+    if refresh_days <= 0:
+        return True
+    parsed = _parse_date(trial.last_update_date)
+    if not parsed:
+        return False
+    return parsed >= (date.today() - timedelta(days=refresh_days))
+
+
+def _is_ready_for_retry_scan(trial: ClinicalTrial, retry_days_no_match: int) -> bool:
+    if retry_days_no_match <= 0:
+        return True
+    parsed = _parse_date(trial.publication_scan_date)
+    if not parsed:
+        return True
+    return parsed <= (date.today() - timedelta(days=retry_days_no_match))
+
+
+def _should_scan_trial_incremental(
+    trial: ClinicalTrial,
+    existing_publications: list[ClinicalTrialPublication],
+    refresh_days: int,
+    retry_days_no_match: int,
+) -> bool:
+    if not existing_publications:
+        if _has_recent_source_update(trial, refresh_days):
+            return True
+        return _is_ready_for_retry_scan(trial, retry_days_no_match)
+    has_full = any((p.is_full_match or "").strip().lower() == "yes" for p in existing_publications)
+    if not has_full:
+        if _has_recent_source_update(trial, refresh_days):
+            return True
+        return _is_ready_for_retry_scan(trial, retry_days_no_match)
+    return _has_recent_source_update(trial, refresh_days)
+
+
 def ensure_publications_table(session) -> None:
     session.execute(
         text(
@@ -522,6 +651,35 @@ def ensure_publications_table(session) -> None:
     session.commit()
 
 
+def ensure_pubmed_cache_tables(session) -> None:
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS pubmed_search_cache (
+                query TEXT PRIMARY KEY,
+                pmids TEXT,
+                updated_at TEXT
+            )
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS pubmed_summary_cache (
+                pmid TEXT PRIMARY KEY,
+                publication_date_raw TEXT,
+                publication_title TEXT,
+                journal TEXT,
+                doi TEXT,
+                updated_at TEXT
+            )
+            """
+        )
+    )
+    session.commit()
+
+
 def rebuild_trial_publications(
     session,
     *,
@@ -530,28 +688,64 @@ def rebuild_trial_publications(
     max_doi_lookups: int = 200,
     max_links_per_trial: int = 5,
     full_match_min_confidence: int = DEFAULT_FULL_MATCH_MIN_CONFIDENCE,
+    incremental_mode: bool = True,
+    refresh_days: int = 120,
+    retry_days_no_match: int = 30,
 ) -> dict[str, int]:
+    ensure_columns(session)
     ensure_publications_table(session)
-    session.query(ClinicalTrialPublication).delete()
-    session.commit()
+    ensure_pubmed_cache_tables(session)
+    if not incremental_mode:
+        session.query(ClinicalTrialPublication).delete()
+        session.commit()
 
-    nct_lookup_cache: dict[str, list[str]] = {}
-    title_lookup_cache: dict[str, list[str]] = {}
-    doi_lookup_cache: dict[str, list[str]] = {}
-    summary_cache: dict[str, dict[str, str]] = {}
+    search_cache = _load_pubmed_search_cache(session)
+    summary_cache = _load_pubmed_summary_cache(session)
+    dirty_search_keys: set[str] = set()
+    dirty_summary_pmids: set[str] = set()
 
     nct_lookups_used = 0
     title_lookups_used = 0
     doi_lookups_used = 0
-    publication_rows = 0
-    full_match_rows = 0
-    candidate_rows = 0
-    trials_with_publications = 0
-    trials_with_candidates = 0
+    scanned_trials = 0
+    skipped_trials = 0
+    inserted_rows = 0
+    updated_rows = 0
 
     trials = session.query(ClinicalTrial).all()
     trials.sort(key=_trial_priority_key)
     for trial in trials:
+        existing_publications = (
+            session.query(ClinicalTrialPublication)
+            .filter(ClinicalTrialPublication.nct_id == trial.nct_id)
+            .all()
+        )
+        existing_by_key: dict[tuple[str, str], ClinicalTrialPublication] = {}
+        for pub in existing_publications:
+            key = (_clean(pub.pmid), _normalize_doi(pub.doi))
+            if key in existing_by_key:
+                session.delete(pub)
+                continue
+            existing_by_key[key] = pub
+            expected_full = "yes" if _is_full_publication_match(
+                _clean(pub.match_method),
+                int(pub.confidence or 0),
+                full_match_min_confidence,
+            ) else "no"
+            if (pub.is_full_match or "").strip().lower() != expected_full:
+                pub.is_full_match = expected_full
+                updated_rows += 1
+
+        if incremental_mode and not _should_scan_trial_incremental(
+            trial,
+            list(existing_by_key.values()),
+            refresh_days=refresh_days,
+            retry_days_no_match=retry_days_no_match,
+        ):
+            skipped_trials += 1
+            continue
+
+        scanned_trials += 1
         method_by_pmid: dict[str, tuple[str, int]] = {}
         raw_dois = set(_extract_dois(trial.pubmed_links))
 
@@ -568,12 +762,14 @@ def rebuild_trial_publications(
         for idx, nct_token in enumerate(nct_tokens):
             if len(method_by_pmid) >= max_links_per_trial:
                 break
-            cached = nct_lookup_cache.get(nct_token)
+            query_term = f"{nct_token}[si]"
+            cached = search_cache.get(query_term)
             if cached is None:
                 if nct_lookups_used >= max_nct_lookups:
                     break
-                cached = _search_pubmed_pmids(f"{nct_token}[si]", max_links=max_links_per_trial)
-                nct_lookup_cache[nct_token] = cached
+                cached = _search_pubmed_pmids(query_term, max_links=max_links_per_trial)
+                search_cache[query_term] = cached
+                dirty_search_keys.add(query_term)
                 nct_lookups_used += 1
             for pmid in cached:
                 method = "nct_exact" if idx == 0 else "secondary_nct_exact"
@@ -583,12 +779,14 @@ def rebuild_trial_publications(
         for doi in list(raw_dois):
             if len(method_by_pmid) >= max_links_per_trial:
                 break
-            cached = doi_lookup_cache.get(doi)
+            query_term = f"{doi}[AID]"
+            cached = search_cache.get(query_term)
             if cached is None:
                 if doi_lookups_used >= max_doi_lookups:
                     continue
-                cached = _search_pubmed_pmids(f"{doi}[AID]", max_links=max_links_per_trial)
-                doi_lookup_cache[doi] = cached
+                cached = _search_pubmed_pmids(query_term, max_links=max_links_per_trial)
+                search_cache[query_term] = cached
+                dirty_search_keys.add(query_term)
                 doi_lookups_used += 1
             for pmid in cached:
                 _assign_method(method_by_pmid, pmid, "doi_reference")
@@ -597,10 +795,11 @@ def rebuild_trial_publications(
         if not method_by_pmid and max_title_lookups > 0:
             title_query = _build_title_query(trial.title, trial.sponsor, trial.admission_date)
             if title_query:
-                cached = title_lookup_cache.get(title_query)
+                cached = search_cache.get(title_query)
                 if cached is None and title_lookups_used < max_title_lookups:
                     cached = _search_pubmed_pmids(title_query, max_links=max_links_per_trial * 2)
-                    title_lookup_cache[title_query] = cached
+                    search_cache[title_query] = cached
+                    dirty_search_keys.add(title_query)
                     title_lookups_used += 1
                 elif cached is None:
                     cached = []
@@ -608,7 +807,9 @@ def rebuild_trial_publications(
                 if cached:
                     summary_missing = [pmid for pmid in cached if pmid not in summary_cache]
                     if summary_missing:
-                        summary_cache.update(_fetch_pubmed_summary(summary_missing))
+                        fetched = _fetch_pubmed_summary(summary_missing)
+                        summary_cache.update(fetched)
+                        dirty_summary_pmids.update(fetched.keys())
 
                     trial_title = _clean(trial.title).lower()
                     for pmid in cached:
@@ -632,11 +833,11 @@ def rebuild_trial_publications(
         pmids = list(method_by_pmid.keys())[:max_links_per_trial]
         summary_missing = [pmid for pmid in pmids if pmid not in summary_cache]
         if summary_missing:
-            summary_cache.update(_fetch_pubmed_summary(summary_missing))
+            fetched = _fetch_pubmed_summary(summary_missing)
+            summary_cache.update(fetched)
+            dirty_summary_pmids.update(fetched.keys())
 
         inserted_keys = set()
-        trial_has_full_match = False
-        trial_has_candidate = False
         for pmid in pmids:
             summary = summary_cache.get(pmid, {}) or {}
             method, confidence = method_by_pmid.get(pmid, ("title_fuzzy", 70))
@@ -657,27 +858,40 @@ def rebuild_trial_publications(
                 confidence,
                 full_match_min_confidence,
             )
+            full_value = "yes" if is_full_match else "no"
 
-            session.add(
-                ClinicalTrialPublication(
-                    nct_id=trial.nct_id,
-                    pmid=pmid,
-                    doi=doi or None,
-                    publication_date=publication_date or "NA",
-                    publication_title=_clean(summary.get("publication_title")) or "NA",
-                    journal=_clean(summary.get("journal")) or "NA",
-                    match_method=method,
-                    confidence=confidence,
-                    is_full_match="yes" if is_full_match else "no",
-                )
+            existing = existing_by_key.get(key)
+            if existing:
+                should_update = int(confidence) >= int(existing.confidence or 0)
+                if should_update:
+                    existing.publication_date = publication_date or existing.publication_date or "NA"
+                    existing.publication_title = _clean(summary.get("publication_title")) or existing.publication_title or "NA"
+                    existing.journal = _clean(summary.get("journal")) or existing.journal or "NA"
+                    existing.match_method = method
+                    existing.confidence = confidence
+                    existing.is_full_match = full_value
+                    if doi and not _clean(existing.doi):
+                        existing.doi = doi
+                    updated_rows += 1
+                elif (existing.is_full_match or "").strip().lower() != full_value:
+                    existing.is_full_match = full_value
+                    updated_rows += 1
+                continue
+
+            new_row = ClinicalTrialPublication(
+                nct_id=trial.nct_id,
+                pmid=pmid,
+                doi=doi or None,
+                publication_date=publication_date or "NA",
+                publication_title=_clean(summary.get("publication_title")) or "NA",
+                journal=_clean(summary.get("journal")) or "NA",
+                match_method=method,
+                confidence=confidence,
+                is_full_match=full_value,
             )
-            publication_rows += 1
-            if is_full_match:
-                full_match_rows += 1
-                trial_has_full_match = True
-            else:
-                candidate_rows += 1
-                trial_has_candidate = True
+            session.add(new_row)
+            existing_by_key[key] = new_row
+            inserted_rows += 1
 
         # Keep DOI-only records when no PMID mapping exists.
         pmid_set = set(pmids)
@@ -685,6 +899,13 @@ def rebuild_trial_publications(
             if not doi:
                 continue
             if any(doi == _normalize_doi(summary_cache.get(pmid, {}).get("doi")) for pmid in pmid_set):
+                continue
+            key = ("", doi)
+            if key in existing_by_key:
+                existing = existing_by_key[key]
+                if (existing.is_full_match or "").strip().lower() != "yes":
+                    existing.is_full_match = "yes"
+                    updated_rows += 1
                 continue
             session.add(
                 ClinicalTrialPublication(
@@ -699,25 +920,53 @@ def rebuild_trial_publications(
                     is_full_match="yes",
                 )
             )
-            publication_rows += 1
-            full_match_rows += 1
-            trial_has_full_match = True
+            inserted_rows += 1
 
-        if trial_has_full_match:
-            trials_with_publications += 1
-        elif trial_has_candidate:
-            trials_with_candidates += 1
+        trial.publication_scan_date = date.today().isoformat()
 
+    _persist_pubmed_search_cache(session, search_cache, dirty_search_keys)
+    _persist_pubmed_summary_cache(session, summary_cache, dirty_summary_pmids)
     session.commit()
+
+    publication_rows = session.query(ClinicalTrialPublication).count()
+    full_match_rows = (
+        session.query(ClinicalTrialPublication)
+        .filter(text("LOWER(COALESCE(is_full_match, '')) = 'yes'"))
+        .count()
+    )
+    candidate_rows = (
+        session.query(ClinicalTrialPublication)
+        .filter(text("LOWER(COALESCE(is_full_match, '')) = 'no'"))
+        .count()
+    )
+    full_trial_ids = {
+        row[0]
+        for row in session.execute(
+            text("SELECT DISTINCT nct_id FROM trial_publications WHERE LOWER(COALESCE(is_full_match, '')) = 'yes'")
+        ).fetchall()
+    }
+    candidate_trial_ids = {
+        row[0]
+        for row in session.execute(
+            text("SELECT DISTINCT nct_id FROM trial_publications WHERE LOWER(COALESCE(is_full_match, '')) = 'no'")
+        ).fetchall()
+    } - full_trial_ids
+
     return {
         "publication_rows": publication_rows,
-        "trials_with_publications": trials_with_publications,
+        "trials_with_publications": len(full_trial_ids),
         "full_match_rows": full_match_rows,
         "candidate_rows": candidate_rows,
-        "trials_with_candidates": trials_with_candidates,
+        "trials_with_candidates": len(candidate_trial_ids),
         "nct_lookups_used": nct_lookups_used,
         "title_lookups_used": title_lookups_used,
         "doi_lookups_used": doi_lookups_used,
+        "scanned_trials": scanned_trials,
+        "skipped_trials": skipped_trials,
+        "inserted_rows": inserted_rows,
+        "updated_rows": updated_rows,
+        "cache_search_entries": len(search_cache),
+        "cache_summary_entries": len(summary_cache),
     }
 
 
@@ -1029,6 +1278,7 @@ def ensure_columns(session):
         "intervention_types": "TEXT",
         "primary_completion_date": "TEXT",
         "publication_date": "TEXT",
+        "publication_scan_date": "TEXT",
         "publication_lag_days": "INTEGER",
         "evidence_strength": "TEXT",
         "dead_end": "TEXT",
@@ -1274,6 +1524,10 @@ def run():
     pubmed_full_match_threshold = int(
         os.getenv("PUBMED_FULL_MATCH_MIN_CONFIDENCE", str(DEFAULT_FULL_MATCH_MIN_CONFIDENCE))
     )
+    pubmed_publication_mode = os.getenv("PUBMED_PUBLICATION_MODE", "incremental").strip().lower()
+    pubmed_incremental_mode = pubmed_publication_mode != "full"
+    pubmed_refresh_days = int(os.getenv("PUBMED_REFRESH_DAYS", "120"))
+    pubmed_retry_days_no_match = int(os.getenv("PUBMED_RETRY_DAYS_NO_MATCH", "30"))
     publication_stats = rebuild_trial_publications(
         session,
         max_nct_lookups=pubmed_nct_lookup_limit,
@@ -1281,6 +1535,9 @@ def run():
         max_doi_lookups=pubmed_doi_lookup_limit,
         max_links_per_trial=pubmed_per_trial_limit,
         full_match_min_confidence=pubmed_full_match_threshold,
+        incremental_mode=pubmed_incremental_mode,
+        refresh_days=pubmed_refresh_days,
+        retry_days_no_match=pubmed_retry_days_no_match,
     )
     publication_rows_refreshed = refresh_trial_publication_summary(session)
     pubmed_dates = backfill_pubmed_publication_dates(session, max_lookups=pubmed_date_limit)
@@ -1298,11 +1555,20 @@ def run():
     print(f"has_results corrected from PubMed links: {results_fixed}")
     print(
         "Publication index: "
+        f"mode={'incremental' if pubmed_incremental_mode else 'full'}, "
+        f"refresh_days={pubmed_refresh_days}, "
+        f"retry_days_no_match={pubmed_retry_days_no_match}, "
+        f"scanned_trials={publication_stats['scanned_trials']}, "
+        f"skipped_trials={publication_stats['skipped_trials']}, "
         f"rows={publication_stats['publication_rows']}, "
         f"full_rows={publication_stats['full_match_rows']}, "
         f"candidate_rows={publication_stats['candidate_rows']}, "
         f"full_trials={publication_stats['trials_with_publications']}, "
         f"candidate_trials={publication_stats['trials_with_candidates']}, "
+        f"inserted_rows={publication_stats['inserted_rows']}, "
+        f"updated_rows={publication_stats['updated_rows']}, "
+        f"search_cache={publication_stats['cache_search_entries']}, "
+        f"summary_cache={publication_stats['cache_summary_entries']}, "
         f"full_match_threshold={pubmed_full_match_threshold}, "
         f"nct_lookups={publication_stats['nct_lookups_used']}, "
         f"title_lookups={publication_stats['title_lookups_used']}, "

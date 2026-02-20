@@ -40,6 +40,9 @@ Publication-index controls (v1.4):
 - `PUBMED_DOI_LOOKUP_LIMIT=200` max DOI lookups
 - `PUBMED_PER_TRIAL_LINK_LIMIT=5` max stored publication links per trial
 - `PUBMED_FULL_MATCH_MIN_CONFIDENCE=80` minimum confidence for fuzzy/title matches to be treated as full matches
+- `PUBMED_PUBLICATION_MODE=incremental` (`incremental` or `full`, default: `incremental`)
+- `PUBMED_REFRESH_DAYS=120` in incremental mode, only refresh trials with source updates in this window when they already have full matches
+- `PUBMED_RETRY_DAYS_NO_MATCH=30` in incremental mode, retry scan interval for trials without full publication matches
 
 Publication-index execution is prioritized toward higher-impact rows first (`phase >=2`, terminal status, no publication signal, older completion date) so limited lookup budgets are spent where evidence impact is highest.
 
@@ -210,6 +213,7 @@ Publication-link confidence rule:
 - `clinical_trials` keeps compact fields for fast filtering/sorting (id, status, dates, class, tags, etc.).
 - `clinical_trial_details` stores long-text fields (conditions, interventions, outcomes, eligibility, locations, summaries/descriptions).
 - `trial_publications` stores normalized publication rows (`pmid`, `doi`, `publication_date`, `match_method`, `confidence`, `is_full_match`) and is used to compute publication coverage analytics.
+- `pubmed_search_cache` and `pubmed_summary_cache` persist PubMed query/results cache so future ingestion runs reuse prior lookups instead of repeating network calls.
 - Both tables are linked 1:1 via `nct_id`.
 - In the dashboard Quick filters bar, `Origin` lets you filter by source (`clinicaltrials.gov`, `ctis`, or merged `clinicaltrials.gov+ctis`).
 - In Explorer, `Trial ID` is the primary row ID and `NCT ID` is shown explicitly as a separate column.
@@ -239,6 +243,7 @@ Below is what each field stores, expected values/patterns, and one quick example
 | `results_last_update` | Date linked to results posting/submission | `YYYY-MM-DD` or `NA` |
 | `pubmed_links` | PubMed paper links found by NCT ID lookup | Pipe-separated PubMed URLs or `NA` |
 | `publication_date` | Earliest publication date among linked PubMed papers | `YYYY-MM-DD` or `NA` |
+| `publication_scan_date` | Last date when the publication linker scanned this trial | `YYYY-MM-DD` or `NA` |
 | `publication_lag_days` | Days between publication and primary completion | Non-negative integer or `NA` |
 | `publication_count` | Number of **full-match** publication rows linked to the trial (`trial_publications`) | Integer (`0+`) |
 | `publication_match_methods` | Methods used for **full-match** publication linking | Comma-separated: `pubmed_link`, `nct_exact`, `secondary_nct_exact`, `doi_reference`, `title_fuzzy`, `NA` |

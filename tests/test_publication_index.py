@@ -178,6 +178,86 @@ class PublicationIndexTests(unittest.TestCase):
         pmids = _search_pubmed_pmids("NCT12345678[si]", max_links=3)
         self.assertEqual(pmids, ["12345", "67890"])
 
+    @patch("scripts.ingest_clinicaltrials._search_pubmed_pmids")
+    def test_incremental_mode_skips_trials_with_existing_full_match(self, mock_search):
+        session = self.Session()
+        session.add(
+            ClinicalTrial(
+                nct_id="NCT10000009",
+                title="Historical PDAC trial",
+                last_update_date="2019-01-01",
+                pubmed_links="https://pubmed.ncbi.nlm.nih.gov/33445566/",
+                has_results="yes",
+            )
+        )
+        session.add(
+            ClinicalTrialPublication(
+                nct_id="NCT10000009",
+                pmid="33445566",
+                doi="",
+                publication_date="2020-01-01",
+                publication_title="Historical publication",
+                journal="Journal",
+                match_method="nct_exact",
+                confidence=92,
+                is_full_match="yes",
+            )
+        )
+        session.commit()
+
+        stats = rebuild_trial_publications(
+            session,
+            max_nct_lookups=5,
+            max_title_lookups=5,
+            max_doi_lookups=5,
+            max_links_per_trial=5,
+            incremental_mode=True,
+            refresh_days=120,
+        )
+
+        self.assertEqual(stats["scanned_trials"], 0)
+        self.assertEqual(stats["skipped_trials"], 1)
+        mock_search.assert_not_called()
+        pubs = (
+            session.query(ClinicalTrialPublication)
+            .filter(ClinicalTrialPublication.nct_id == "NCT10000009")
+            .all()
+        )
+        self.assertEqual(len(pubs), 1)
+        self.assertEqual((pubs[0].is_full_match or "").lower(), "yes")
+        session.close()
+
+    @patch("scripts.ingest_clinicaltrials._search_pubmed_pmids")
+    def test_incremental_mode_uses_retry_window_for_no_match_trials(self, mock_search):
+        session = self.Session()
+        session.add(
+            ClinicalTrial(
+                nct_id="NCT10000010",
+                title="No match trial",
+                last_update_date="2019-01-01",
+                publication_scan_date="2026-02-10",
+                pubmed_links="NA",
+                has_results="no",
+            )
+        )
+        session.commit()
+
+        stats = rebuild_trial_publications(
+            session,
+            max_nct_lookups=5,
+            max_title_lookups=5,
+            max_doi_lookups=5,
+            max_links_per_trial=5,
+            incremental_mode=True,
+            refresh_days=120,
+            retry_days_no_match=30,
+        )
+
+        self.assertEqual(stats["scanned_trials"], 0)
+        self.assertEqual(stats["skipped_trials"], 1)
+        mock_search.assert_not_called()
+        session.close()
+
 
 if __name__ == "__main__":
     unittest.main()

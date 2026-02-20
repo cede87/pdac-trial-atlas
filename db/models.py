@@ -28,6 +28,7 @@ class ClinicalTrial(Base):
     intervention_types = Column(String)
     primary_completion_date = Column(String)
     publication_date = Column(String)
+    publication_scan_date = Column(String)
     publication_lag_days = Column(Integer)
     evidence_strength = Column(String)
     dead_end = Column(String)
