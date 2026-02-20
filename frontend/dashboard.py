@@ -137,9 +137,14 @@ def build_display_df(filtered: pd.DataFrame) -> pd.DataFrame:
                 "therapeutic_class",
                 "admission_date",
                 "last_update_date",
+                "primary_completion_date",
                 "has_results",
                 "results_last_update",
                 "pubmed_links",
+                "publication_date",
+                "publication_lag_days",
+                "evidence_strength",
+                "dead_end",
                 "conditions",
                 "interventions",
                 "intervention_types",
@@ -170,9 +175,14 @@ def build_display_df(filtered: pd.DataFrame) -> pd.DataFrame:
                 "therapeutic_class": "Therapeutic Class",
                 "admission_date": "Admission Date",
                 "last_update_date": "Last Update",
+                "primary_completion_date": "Primary Completion",
                 "has_results": "Results",
                 "results_last_update": "Results Update",
                 "pubmed_links": "Paper Link",
+                "publication_date": "Publication Date",
+                "publication_lag_days": "Publication Lag (days)",
+                "evidence_strength": "Evidence Strength",
+                "dead_end": "Dead End",
                 "conditions": "Conditions",
                 "interventions": "Interventions",
                 "intervention_types": "Intervention Types",
@@ -214,9 +224,14 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                     c.sponsor,
                     c.admission_date,
                     c.last_update_date,
+                    c.primary_completion_date,
                     c.has_results,
                     c.results_last_update,
                     c.pubmed_links,
+                    c.publication_date,
+                    c.publication_lag_days,
+                    c.evidence_strength,
+                    c.dead_end,
                     c.intervention_types,
                     c.therapeutic_class,
                     c.focus_tags,
@@ -254,8 +269,13 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                     c.sponsor,
                     c.admission_date,
                     c.last_update_date,
+                    c.primary_completion_date,
                     c.has_results,
                     c.results_last_update,
+                    c.publication_date,
+                    c.publication_lag_days,
+                    c.evidence_strength,
+                    c.dead_end,
                     c.intervention_types,
                     c.therapeutic_class,
                     c.focus_tags,
@@ -292,9 +312,14 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
         "sponsor",
         "admission_date",
         "last_update_date",
+        "primary_completion_date",
         "has_results",
         "results_last_update",
         "pubmed_links",
+        "publication_date",
+        "publication_lag_days",
+        "evidence_strength",
+        "dead_end",
         "conditions",
         "interventions",
         "intervention_types",
@@ -391,6 +416,12 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     results_options = sorted([x for x in df["has_results"].unique() if x])
     selected_results = st.sidebar.multiselect("Results", results_options)
 
+    evidence_options = sorted([x for x in df["evidence_strength"].unique() if x])
+    selected_evidence = st.sidebar.multiselect("Evidence strength", evidence_options)
+
+    dead_end_options = sorted([x for x in df["dead_end"].unique() if x])
+    selected_dead_end = st.sidebar.multiselect("Dead end", dead_end_options)
+
     admission_years = sorted({_year_from_date(x) for x in df["admission_date"] if _year_from_date(x)})
     selected_admission_years = st.sidebar.multiselect("Admission year", admission_years)
 
@@ -426,6 +457,10 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
         ]
     if selected_results:
         out = out[out["has_results"].isin(selected_results)]
+    if selected_evidence:
+        out = out[out["evidence_strength"].isin(selected_evidence)]
+    if selected_dead_end:
+        out = out[out["dead_end"].isin(selected_dead_end)]
     if selected_admission_years:
         out = out[out["admission_date"].apply(lambda x: _year_from_date(x) in selected_admission_years)]
     if selected_update_years:
@@ -525,6 +560,8 @@ def render_explorer(filtered: pd.DataFrame):
         "Status",
         "Sponsor",
         "Therapeutic Class",
+        "Evidence Strength",
+        "Dead End",
         "Paper Link",
         "Intervention Types",
         "Admission Date",
@@ -613,9 +650,14 @@ def render_explorer(filtered: pd.DataFrame):
                 "Therapeutic Class": "Normalized therapy strategy class.",
                 "Admission Date": "Initial registration/posting date.",
                 "Last Update": "Latest update date reported.",
+                "Primary Completion": "Primary completion date (when available).",
                 "Results": "Whether source indicates result availability.",
                 "Results Update": "Date associated with results publication/update.",
                 "Paper Link": "First linked PubMed paper found by NCT.",
+                "Publication Date": "Earliest linked PubMed publication date (when available).",
+                "Publication Lag (days)": "Publication date minus primary completion date.",
+                "Evidence Strength": "Heuristic evidence strength based on phase, results, and timing.",
+                "Dead End": "Phase >=2, completed/terminated, no publication after 5 years.",
                 "Conditions": "Reported study conditions.",
                 "Interventions": "Interventions with type and name.",
                 "Intervention Types": "Unique intervention type(s) only.",
@@ -661,6 +703,8 @@ def render_explorer(filtered: pd.DataFrame):
                 gb.configure_column("Admission Date", minWidth=125, maxWidth=170)
             if "Last Update" in display_df.columns:
                 gb.configure_column("Last Update", minWidth=125, maxWidth=170)
+            if "Primary Completion" in display_df.columns:
+                gb.configure_column("Primary Completion", minWidth=145, maxWidth=185)
             if "Results" in display_df.columns:
                 gb.configure_column("Results", minWidth=90, maxWidth=115)
             if "Results Update" in display_df.columns:
@@ -672,6 +716,14 @@ def render_explorer(filtered: pd.DataFrame):
                     flex=1.35,
                     cellStyle={"color": "#2f7a66", "textDecoration": "underline"},
                 )
+            if "Publication Date" in display_df.columns:
+                gb.configure_column("Publication Date", minWidth=145, maxWidth=190)
+            if "Publication Lag (days)" in display_df.columns:
+                gb.configure_column("Publication Lag (days)", minWidth=155, maxWidth=210)
+            if "Evidence Strength" in display_df.columns:
+                gb.configure_column("Evidence Strength", minWidth=145, maxWidth=185)
+            if "Dead End" in display_df.columns:
+                gb.configure_column("Dead End", minWidth=95, maxWidth=120)
             if "Intervention Types" in display_df.columns:
                 gb.configure_column("Intervention Types", minWidth=145, maxWidth=210)
             if "Conditions" in display_df.columns:
@@ -1124,6 +1176,188 @@ def render_analytics(filtered: pd.DataFrame):
             )
         )
         st.altair_chart(themed_chart(design_chart), width="stretch")
+
+    st.markdown("")
+    quality_df = filtered.copy()
+    quality_df["publication_date_dt"] = pd.to_datetime(
+        quality_df["publication_date"], errors="coerce"
+    )
+    quality_df["primary_completion_date_dt"] = pd.to_datetime(
+        quality_df["primary_completion_date"], errors="coerce"
+    )
+    quality_df["raw_lag_days"] = (
+        quality_df["publication_date_dt"] - quality_df["primary_completion_date_dt"]
+    ).dt.days
+    quality_df["has_pubmed"] = (
+        quality_df["pubmed_links"].fillna("").astype(str).str.strip().str.upper() != "NA"
+    ) & (
+        quality_df["pubmed_links"].fillna("").astype(str).str.strip() != ""
+    )
+
+    negative_lag_anomalies = int((quality_df["raw_lag_days"] < 0).sum())
+    missing_pub_date_with_pubmed = int(
+        (quality_df["has_pubmed"] & quality_df["publication_date_dt"].isna()).sum()
+    )
+    unknown_like_class = int(
+        filtered["therapeutic_class"]
+        .fillna("")
+        .astype(str)
+        .str.lower()
+        .isin({"", "na", "unknown", "context_classified"})
+        .sum()
+    )
+    unknown_evidence = int(
+        filtered["evidence_strength"]
+        .fillna("")
+        .astype(str)
+        .str.lower()
+        .isin({"", "na", "unknown"})
+        .sum()
+    )
+
+    q1, q2, q3, q4 = st.columns(4)
+    with q1:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Negative Lag Anomalies</div>'
+            f'<div class="metric-value">{negative_lag_anomalies:,}</div></div>',
+            unsafe_allow_html=True,
+        )
+    with q2:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">PubMed Without Publication Date</div>'
+            f'<div class="metric-value">{missing_pub_date_with_pubmed:,}</div></div>',
+            unsafe_allow_html=True,
+        )
+    with q3:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Unknown-like Therapeutic Class</div>'
+            f'<div class="metric-value">{unknown_like_class:,}</div></div>',
+            unsafe_allow_html=True,
+        )
+    with q4:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Unknown Evidence Strength</div>'
+            f'<div class="metric-value">{unknown_evidence:,}</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    st.caption(
+        "Negative lag anomalies (publication before primary completion) are excluded from lag analytics."
+    )
+
+    lag_df = filtered.copy()
+    lag_df["publication_lag_days"] = pd.to_numeric(
+        lag_df["publication_lag_days"], errors="coerce"
+    )
+    lag_df["phase"] = lag_df["phase"].fillna("").astype(str)
+    lag_df = lag_df[(lag_df["publication_lag_days"].notna()) & (lag_df["publication_lag_days"] >= 0)]
+
+    lag_median = int(lag_df["publication_lag_days"].median()) if not lag_df.empty else 0
+    st.markdown(
+        f'<div class="metric-card" style="max-width:260px;">'
+        f'<div class="metric-label">Median Publication Lag (days)</div>'
+        f'<div class="metric-value">{lag_median:,}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    if lag_df.empty:
+        st.info("No non-negative publication lag values are available for the current filters.")
+    else:
+        lag_chart = (
+            alt.Chart(lag_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("publication_lag_days:Q", bin=alt.Bin(maxbins=30), title="Publication lag (days)"),
+                y=alt.Y("count():Q", title="Trials"),
+                tooltip=["count():Q"],
+            )
+            .properties(
+                title="Publication Lag Histogram",
+                height=320,
+            )
+        )
+        st.altair_chart(themed_chart(lag_chart), width="stretch")
+
+        phase_lag_df = (
+            lag_df.groupby("phase", dropna=False)["publication_lag_days"]
+            .median()
+            .reset_index()
+            .rename(columns={"publication_lag_days": "median_lag_days"})
+        )
+        phase_lag_chart = (
+            alt.Chart(phase_lag_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("phase:N", sort="-y", title="Phase"),
+                y=alt.Y("median_lag_days:Q", title="Median lag (days)"),
+                tooltip=["phase:N", "median_lag_days:Q"],
+            )
+            .properties(
+                title="Publication Lag by Phase (Median)",
+                height=320,
+            )
+        )
+        st.altair_chart(themed_chart(phase_lag_chart), width="stretch")
+
+    st.markdown("")
+    phase_raw = filtered["phase"].fillna("").astype(str).str.lower()
+    phase1 = phase_raw.str.contains(r"phase\s*i\b|phase\s*1", regex=True)
+    phase2 = phase_raw.str.contains(r"phase\s*ii\b|phase\s*2", regex=True)
+    phase3 = phase_raw.str.contains(r"phase\s*iii\b|phase\s*3", regex=True)
+    published = (
+        filtered["pubmed_links"].fillna("").astype(str).str.strip().str.upper() != "NA"
+    )
+
+    phase1_count = int(phase1.sum())
+    phase2_count = int(phase2.sum())
+    phase3_count = int(phase3.sum())
+    published_count = int(published.sum())
+    funnel_base = max(phase1_count, 1)
+
+    funnel_df = pd.DataFrame(
+        {
+            "stage": ["Phase I", "Phase II", "Phase III", "Published"],
+            "count": [phase1_count, phase2_count, phase3_count, published_count],
+        }
+    )
+    funnel_df["percent_of_phase1"] = (funnel_df["count"] / funnel_base * 100).round(1)
+
+    funnel_chart = (
+        alt.Chart(funnel_df)
+        .mark_bar()
+        .encode(
+            x=alt.X("stage:N", sort=None, title="Funnel stage"),
+            y=alt.Y("count:Q", title="Count"),
+            tooltip=["stage:N", "count:Q", "percent_of_phase1:Q"],
+        )
+        .properties(
+            title="Failure Funnel (Phase I → Phase II → Phase III → Published)",
+            height=320,
+        )
+    )
+    st.altair_chart(themed_chart(funnel_chart), width="stretch")
+
+    evidence_df = (
+        filtered["evidence_strength"]
+        .replace("", "unknown")
+        .value_counts()
+        .rename_axis("evidence_strength")
+        .reset_index(name="count")
+    )
+    evidence_chart = (
+        alt.Chart(evidence_df)
+        .mark_bar()
+        .encode(
+            x=alt.X("evidence_strength:N", sort="-y", title="Evidence strength"),
+            y=alt.Y("count:Q", title="Count"),
+            tooltip=["evidence_strength:N", "count:Q"],
+        )
+        .properties(
+            title="Evidence Strength Distribution",
+            height=320,
+        )
+    )
+    st.altair_chart(themed_chart(evidence_chart), width="stretch")
 
 
 def main():

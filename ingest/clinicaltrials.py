@@ -503,6 +503,13 @@ def fetch_trials_pancreas(max_records: Optional[int] = None) -> List[Dict]:
                     "startDateStruct",
                 ],
             )
+            primary_completion_date = _pick_date(
+                status_mod,
+                [
+                    "primaryCompletionDateStruct",
+                    "primaryCompletionDate",
+                ],
+            )
             last_update_date = _pick_date(
                 status_mod,
                 [
@@ -540,6 +547,7 @@ def fetch_trials_pancreas(max_records: Optional[int] = None) -> List[Dict]:
                     "focus_tags": ",".join(classification["focus"]) if classification["focus"] else "",
                     "admission_date": admission_date,
                     "last_update_date": last_update_date,
+                    "primary_completion_date": primary_completion_date,
                     "has_results": has_results,
                     "results_last_update": result_flags["results_last_update"],
                     "pubmed_links": "",

@@ -1,6 +1,6 @@
 """SQLAlchemy models."""
 
-from sqlalchemy import Column, ForeignKey, String, Text
+from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from db.session import Base
 
 
@@ -26,6 +26,11 @@ class ClinicalTrial(Base):
     results_last_update = Column(String)
     pubmed_links = Column(Text)
     intervention_types = Column(String)
+    primary_completion_date = Column(String)
+    publication_date = Column(String)
+    publication_lag_days = Column(Integer)
+    evidence_strength = Column(String)
+    dead_end = Column(String)
 
     # Semantic classification
     therapeutic_class = Column(String)

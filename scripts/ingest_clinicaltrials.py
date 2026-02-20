@@ -9,12 +9,22 @@ All semantic classification is done upstream (ingest modules).
 
 import os
 import re
+import sqlite3
+from datetime import datetime, date
+import xml.etree.ElementTree as ET
 
+import numpy as np
+import pandas as pd
+import requests
+from typing import Optional
 from ingest.clinicaltrials import fetch_trials_pancreas, _fetch_pubmed_links_by_nct
 from ingest.ctis import fetch_trials_ctis_pdac
 from db.session import SessionLocal, init_db
 from db.models import ClinicalTrial, ClinicalTrialDetails
 from sqlalchemy import text
+
+PUBMED_SUMMARY_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
+PUBMED_FETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 
 
 def as_na(value):
@@ -55,6 +65,333 @@ def _parse_date_key(value: str) -> str:
         return ""
     value = str(value).strip()
     return value if re.match(r"^\d{4}(-\d{2}){0,2}$", value) else ""
+
+
+def _parse_date(value: str) -> Optional[date]:
+    if is_na(value):
+        return None
+    raw = str(value).strip()
+    for fmt in ("%Y-%m-%d", "%Y-%m", "%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except Exception:
+            continue
+    return None
+
+
+def _parse_pubmed_date(value: str) -> Optional[date]:
+    if not value:
+        return None
+    raw = str(value).strip()
+    for fmt in ("%Y %b %d", "%Y %b", "%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except Exception:
+            continue
+    return _parse_date(raw)
+
+
+def _extract_pmids(pubmed_links: str) -> list[str]:
+    if is_na(pubmed_links):
+        return []
+    pmids = []
+    for part in str(pubmed_links).split("|"):
+        match = re.search(r"(\d{5,10})", part)
+        if match:
+            pmids.append(match.group(1))
+    return list(dict.fromkeys(pmids))
+
+
+def _fetch_pubmed_summary(pmids: list[str]) -> dict[str, str]:
+    if not pmids:
+        return {}
+    try:
+        resp = requests.get(
+            PUBMED_SUMMARY_URL,
+            params={
+                "db": "pubmed",
+                "retmode": "json",
+                "id": ",".join(pmids),
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        payload = resp.json().get("result", {}) or {}
+        out = {}
+        for pmid in pmids:
+            row = payload.get(pmid) or {}
+            pubdate = row.get("pubdate") or row.get("epubdate") or ""
+            out[pmid] = pubdate
+        return out
+    except Exception:
+        return {}
+
+
+def _fetch_pubmed_mesh_terms(pmids: list[str]) -> list[str]:
+    if not pmids:
+        return []
+    try:
+        resp = requests.get(
+            PUBMED_FETCH_URL,
+            params={
+                "db": "pubmed",
+                "retmode": "xml",
+                "id": ",".join(pmids),
+            },
+            timeout=25,
+        )
+        resp.raise_for_status()
+        root = ET.fromstring(resp.text)
+    except Exception:
+        return []
+
+    terms = []
+    for descriptor in root.findall(".//MeshHeading/DescriptorName"):
+        if descriptor.text:
+            terms.append(descriptor.text.strip())
+    return list(dict.fromkeys([t for t in terms if t]))
+
+
+def _score_therapeutic_class(
+    existing: str,
+    focus_tags: str,
+    mesh_terms: list[str],
+) -> str:
+    existing_norm = (existing or "").strip().lower()
+    scores = {}
+
+    if existing_norm and existing_norm not in {"unknown", "context_classified", "na"}:
+        scores[existing_norm] = scores.get(existing_norm, 0) + 2
+
+    tag_text = " ".join([t.strip() for t in (focus_tags or "").split(",") if t.strip()]).lower()
+    mesh_text = " ".join(mesh_terms or []).lower()
+    combined = f"{tag_text} {mesh_text}".strip()
+
+    tag_to_class = {
+        "biomarker": "biomarker_diagnostics",
+        "early_detection": "biomarker_diagnostics",
+        "imaging_diagnostics": "biomarker_diagnostics",
+        "liquid_biopsy": "biomarker_diagnostics",
+        "genomics_precision": "targeted_therapy",
+        "supportive_outcomes": "supportive_care",
+        "locoregional_procedure": "locoregional_therapy",
+        "registry_real_world": "registry_program",
+    }
+    for tag in (focus_tags or "").split(","):
+        key = tag.strip().lower()
+        if key in tag_to_class:
+            cls = tag_to_class[key]
+            scores[cls] = scores.get(cls, 0) + 1
+
+    mesh_signals = {
+        "chemotherapy": ["chemotherapy", "antineoplastic"],
+        "immunotherapy": ["immunotherapy", "immune checkpoint", "vaccines"],
+        "targeted_therapy": ["molecular targeted", "protein kinase", "parp", "egfr", "kras", "braf", "inhibitor"],
+        "radiotherapy": ["radiotherapy", "radiation"],
+        "surgical": ["surgery", "surgical procedures", "pancreatectomy", "resection"],
+        "locoregional_therapy": ["ablation", "electroporation", "embolization", "intra-arterial"],
+        "supportive_care": ["palliative care", "quality of life", "pain", "supportive care"],
+        "biomarker_diagnostics": ["biomarker", "diagnostic", "screening", "early detection", "imaging"],
+    }
+    for cls, terms in mesh_signals.items():
+        if any(term in combined for term in terms):
+            scores[cls] = scores.get(cls, 0) + 2
+
+    if not scores:
+        return existing_norm or "context_classified"
+
+    max_score = max(scores.values())
+    candidates = {cls for cls, score in scores.items() if score == max_score}
+    priority = [
+        "locoregional_therapy",
+        "surgical",
+        "radiotherapy",
+        "immunotherapy",
+        "targeted_therapy",
+        "chemotherapy",
+        "supportive_care",
+        "biomarker_diagnostics",
+        "registry_program",
+    ]
+    for cls in priority:
+        if cls in candidates:
+            return cls
+    return sorted(candidates)[0]
+
+
+def backfill_pubmed_publication_dates(session, max_lookups: int = 200) -> int:
+    if max_lookups <= 0:
+        return 0
+    candidates = (
+        session.query(ClinicalTrial)
+        .filter(ClinicalTrial.pubmed_links.is_not(None))
+        .filter(ClinicalTrial.pubmed_links != "")
+        .filter(ClinicalTrial.pubmed_links != "NA")
+        .filter(
+            (ClinicalTrial.publication_date.is_(None))
+            | (ClinicalTrial.publication_date == "")
+            | (ClinicalTrial.publication_date == "NA")
+        )
+        .order_by(ClinicalTrial.nct_id.asc())
+        .limit(max_lookups)
+        .all()
+    )
+
+    updated = 0
+    for trial in candidates:
+        pmids = _extract_pmids(trial.pubmed_links)
+        if not pmids:
+            continue
+        summaries = _fetch_pubmed_summary(pmids)
+        dates = []
+        for pmid in pmids:
+            pubdate = summaries.get(pmid, "")
+            parsed = _parse_pubmed_date(pubdate)
+            if parsed:
+                dates.append(parsed)
+        if not dates:
+            continue
+        trial.publication_date = min(dates).isoformat()
+        updated += 1
+
+    session.commit()
+    return updated
+
+
+def improve_therapeutic_class_ensemble(session, max_lookups: int = 200) -> int:
+    if max_lookups <= 0:
+        return 0
+
+    candidates = (
+        session.query(ClinicalTrial)
+        .filter(
+            (ClinicalTrial.therapeutic_class.is_(None))
+            | (ClinicalTrial.therapeutic_class == "")
+            | (ClinicalTrial.therapeutic_class == "NA")
+            | (ClinicalTrial.therapeutic_class == "unknown")
+            | (ClinicalTrial.therapeutic_class == "context_classified")
+        )
+        .order_by(ClinicalTrial.nct_id.asc())
+        .limit(max_lookups)
+        .all()
+    )
+
+    updated = 0
+    for trial in candidates:
+        mesh_terms = []
+        pmids = _extract_pmids(trial.pubmed_links)
+        if pmids:
+            mesh_terms = _fetch_pubmed_mesh_terms(pmids[:5])
+        new_class = _score_therapeutic_class(
+            trial.therapeutic_class,
+            trial.focus_tags,
+            mesh_terms,
+        )
+        if new_class and new_class != (trial.therapeutic_class or "").strip().lower():
+            trial.therapeutic_class = new_class
+            updated += 1
+
+    session.commit()
+    return updated
+
+
+def compute_signal_fields(session) -> int:
+    bind = session.get_bind()
+    conn = None
+    try:
+        if getattr(bind, "url", None) is not None and bind.url.get_backend_name() == "sqlite":
+            conn = sqlite3.connect(bind.url.database or "pdac_trials.db")
+        else:
+            conn = bind.raw_connection()
+        df = pd.read_sql_query(
+            """
+            SELECT
+                nct_id,
+                phase,
+                status,
+                pubmed_links,
+                primary_completion_date,
+                publication_date
+            FROM clinical_trials
+            """,
+            conn,
+        )
+    finally:
+        if conn is not None:
+            conn.close()
+
+    if df.empty:
+        return 0
+
+    phase_raw = df["phase"].fillna("").astype(str).str.lower()
+    phase_1 = phase_raw.str.contains(r"phase\s*i\b|phase\s*1", regex=True)
+    phase_2 = phase_raw.str.contains(r"phase\s*ii\b|phase\s*2", regex=True)
+    phase_3 = phase_raw.str.contains(r"phase\s*iii\b|phase\s*3", regex=True)
+    phase_4 = phase_raw.str.contains(r"phase\s*iv\b|phase\s*4", regex=True)
+    phase_only_1 = phase_1 & ~(phase_2 | phase_3 | phase_4)
+    phase_ge_2 = phase_2 | phase_3 | phase_4
+
+    status_raw = df["status"].fillna("").astype(str).str.lower()
+    status_terminal = status_raw.str.contains("completed|terminated", regex=True)
+
+    pubmed_raw = df["pubmed_links"].fillna("").astype(str).str.strip()
+    has_pubmed = (pubmed_raw != "") & (pubmed_raw.str.upper() != "NA")
+
+    primary_dt = pd.to_datetime(df["primary_completion_date"], errors="coerce")
+    pub_dt = pd.to_datetime(df["publication_date"], errors="coerce")
+    lag_days_raw = (pub_dt - primary_dt).dt.days
+    # Keep publication lag focused on post-completion publication timing.
+    # Negative values are treated as anomalies and not stored as lag.
+    lag_days = lag_days_raw.where(lag_days_raw >= 0)
+
+    now = pd.Timestamp.utcnow()
+    if getattr(now, "tzinfo", None) is not None:
+        now = now.tz_localize(None)
+    age_days = (now.normalize() - primary_dt).dt.days
+    older_than_5y = age_days >= (365 * 5)
+    no_pubmed = ~has_pubmed
+
+    evidence_strength = np.select(
+        [
+            status_terminal & no_pubmed & older_than_5y,
+            phase_3 & has_pubmed,
+            phase_2 & has_pubmed,
+            phase_only_1,
+        ],
+        ["very_low", "high", "medium", "low"],
+        default="unknown",
+    )
+
+    dead_end = np.where(
+        phase_ge_2 & status_terminal & no_pubmed & older_than_5y,
+        "yes",
+        "no",
+    )
+
+    updates = pd.DataFrame(
+        {
+            "nct_id": df["nct_id"],
+            "evidence_strength": evidence_strength,
+            "publication_lag_days": lag_days,
+            "dead_end": dead_end,
+        }
+    )
+
+    updated = 0
+    for row in updates.itertuples(index=False):
+        trial = session.get(ClinicalTrial, row.nct_id)
+        if not trial:
+            continue
+        trial.evidence_strength = row.evidence_strength
+        if pd.isna(row.publication_lag_days):
+            trial.publication_lag_days = None
+        else:
+            trial.publication_lag_days = int(row.publication_lag_days)
+        trial.dead_end = row.dead_end
+        updated += 1
+
+    session.commit()
+    return updated
 
 
 def merge_ctis_overlaps(session):
@@ -178,6 +515,11 @@ def ensure_columns(session):
         "results_last_update": "TEXT",
         "pubmed_links": "TEXT",
         "intervention_types": "TEXT",
+        "primary_completion_date": "TEXT",
+        "publication_date": "TEXT",
+        "publication_lag_days": "INTEGER",
+        "evidence_strength": "TEXT",
+        "dead_end": "TEXT",
     }
     rows = session.execute(text("PRAGMA table_info(clinical_trials)")).fetchall()
     existing = {row[1] for row in rows}
@@ -369,10 +711,19 @@ def run():
         trial.sponsor = as_na(s.get("sponsor"))
         trial.admission_date = as_na(s.get("admission_date"))
         trial.last_update_date = as_na(s.get("last_update_date"))
+        trial.primary_completion_date = as_na(s.get("primary_completion_date"))
         trial.has_results = as_na(s.get("has_results"))
         trial.results_last_update = as_na(s.get("results_last_update"))
         trial.pubmed_links = as_na(s.get("pubmed_links"))
         trial.intervention_types = as_na(s.get("intervention_types"))
+        if "publication_date" in s:
+            trial.publication_date = as_na(s.get("publication_date"))
+        if "publication_lag_days" in s:
+            trial.publication_lag_days = s.get("publication_lag_days")
+        if "evidence_strength" in s:
+            trial.evidence_strength = as_na(s.get("evidence_strength"))
+        if "dead_end" in s:
+            trial.dead_end = as_na(s.get("dead_end"))
 
         # -----------------------------
         # Semantic classification
@@ -401,6 +752,11 @@ def run():
     pubmed_lookup_limit = int(os.getenv("PUBMED_LOOKUP_LIMIT", "200"))
     enriched, results_fixed = enrich_pubmed_links(session, max_lookups=pubmed_lookup_limit)
     merged_ctis = merge_ctis_overlaps(session)
+    pubmed_date_limit = int(os.getenv("PUBMED_DATE_LOOKUP_LIMIT", "200"))
+    mesh_lookup_limit = int(os.getenv("PUBMED_MESH_LOOKUP_LIMIT", "200"))
+    pubmed_dates = backfill_pubmed_publication_dates(session, max_lookups=pubmed_date_limit)
+    mesh_updated = improve_therapeutic_class_ensemble(session, max_lookups=mesh_lookup_limit)
+    signal_updated = compute_signal_fields(session)
 
     print(f"\nTrials processed: {len(studies)}")
     print(f"ClinicalTrials.gov rows: {len(ctgov_studies)}")
@@ -411,6 +767,9 @@ def run():
     print(f"CTIS↔NCT overlaps merged: {merged_ctis}")
     print(f"PubMed links enriched (this run): {enriched}")
     print(f"has_results corrected from PubMed links: {results_fixed}")
+    print(f"PubMed publication dates added: {pubmed_dates}")
+    print(f"Therapeutic class updated via ensemble: {mesh_updated}")
+    print(f"Signal fields updated: {signal_updated}")
 
     session.close()
 

@@ -834,6 +834,7 @@ def fetch_trials_ctis_pdac(
             or _clean(overview.get("lastPublicationUpdate"))
             or _clean(_nested(details, ["publishDate"], ""))
         )
+        primary_completion_date = ""
         results_last_update = normalize_ctis_date(_clean(overview.get("lastPublicationUpdate")))
 
         normalized.append(
@@ -853,6 +854,7 @@ def fetch_trials_ctis_pdac(
                 "focus_tags": ",".join(classification["focus"]) if classification["focus"] else "",
                 "admission_date": admission_date,
                 "last_update_date": last_update_date,
+                "primary_completion_date": primary_completion_date,
                 "has_results": has_results,
                 "results_last_update": results_last_update,
                 "pubmed_links": pubmed_links,
