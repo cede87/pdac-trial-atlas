@@ -46,9 +46,29 @@ Publication-index controls (v1.4):
 
 Publication-index execution is prioritized toward higher-impact rows first (`phase >=2`, terminal status, no publication signal, older completion date) so limited lookup budgets are spent where evidence impact is highest.
 
+### Incremental publication re-evaluation logic
+
+In `PUBMED_PUBLICATION_MODE=incremental` the linker decides per trial whether to scan again:
+
+1. If the trial has at least one full publication match:
+   - scan again only when `last_update_date` is within `PUBMED_REFRESH_DAYS`.
+2. If the trial has no full publication match:
+   - scan when `last_update_date` is recent (`PUBMED_REFRESH_DAYS`), or
+   - scan when `publication_scan_date` is older than `PUBMED_RETRY_DAYS_NO_MATCH`, or
+   - scan when it has never been scanned (`publication_scan_date` is `NA`).
+3. Otherwise the trial is skipped for that run.
+
+This keeps previously discovered links and avoids repeating the same PubMed work every run.
+
 Signal-enrichment controls (optional):
 - `PUBMED_DATE_LOOKUP_LIMIT=500` PubMed publication-date backfill lookups per run
 - `PUBMED_MESH_LOOKUP_LIMIT=500` PubMed MeSH-based therapeutic-class ensemble lookups per run
+
+Recommended run modes:
+- Fast incremental refresh (daily/regular):
+  - `PYTHONPATH=. PUBMED_PUBLICATION_MODE=incremental python3 scripts/ingest_clinicaltrials.py`
+- Full publication re-index (occasional deep refresh):
+  - `PYTHONPATH=. PUBMED_PUBLICATION_MODE=full python3 scripts/ingest_clinicaltrials.py`
 
 CTIS controls (optional):
 - `INGEST_CTIS=0` skip CTIS for a run
