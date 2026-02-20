@@ -40,6 +40,10 @@ Publication-index controls (v1.4):
 - `PUBMED_DOI_LOOKUP_LIMIT=200` max DOI lookups
 - `PUBMED_PER_TRIAL_LINK_LIMIT=5` max stored publication links per trial
 - `PUBMED_FULL_MATCH_MIN_CONFIDENCE=80` minimum confidence for fuzzy/title matches to be treated as full matches
+- `PUBMED_TITLE_YEAR_LOOKBACK=1` years before completion/admission date for title-based searches
+- `PUBMED_TITLE_YEAR_LOOKAHEAD=12` years after completion/admission date for title-based searches
+- `PUBMED_TITLE_KEYWORD_LIMIT=3` max keywords derived from conditions/interventions for title fallback
+- `PUBMED_TITLE_KEYWORD_MIN_LEN=4` minimum keyword length for title fallback filters
 - `PUBMED_PUBLICATION_MODE=incremental` (`incremental` or `full`, default: `incremental`)
 - `PUBMED_REFRESH_DAYS=120` in incremental mode, only refresh trials with source updates in this window when they already have full matches
 - `PUBMED_RETRY_DAYS_NO_MATCH=30` in incremental mode, retry scan interval for trials without full publication matches

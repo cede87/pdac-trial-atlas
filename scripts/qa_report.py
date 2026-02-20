@@ -4,6 +4,7 @@ Generate a quick QA report for PDAC trial classification quality.
 
 import argparse
 import re
+from datetime import datetime
 from collections import Counter
 
 from db.models import ClinicalTrial, ClinicalTrialDetails, ClinicalTrialPublication
@@ -46,6 +47,18 @@ def _is_valid_date_or_na(value: str) -> bool:
     if _is_na(value):
         return True
     return bool(DATE_RE.match(str(value).strip()))
+
+
+def _parse_date(value: str):
+    if _is_na(value):
+        return None
+    raw = str(value).strip()
+    for fmt in ("%Y-%m-%d", "%Y-%m", "%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except Exception:
+            continue
+    return None
 
 
 def _split_csv(value: str):
@@ -178,6 +191,44 @@ def run(
         "results_last_update": [t for t in trials if not _is_valid_date_or_na(t.results_last_update)],
     }
 
+    invalid_publication_rows = [
+        p for p in publications if _is_na(p.pmid) and _is_na(p.doi)
+    ]
+    invalid_publication_pmids = [
+        p for p in publications if (p.pmid or "").strip() and not str(p.pmid).isdigit()
+    ]
+    duplicate_publications = db.execute(
+        text(
+            """
+            SELECT nct_id, pmid, doi, COUNT(*) AS dupes
+            FROM trial_publications
+            WHERE (pmid IS NOT NULL AND TRIM(pmid) != '')
+               OR (doi IS NOT NULL AND TRIM(doi) != '')
+            GROUP BY nct_id, pmid, doi
+            HAVING dupes > 1
+            """
+        )
+    ).fetchall()
+
+    admission_after_update = [
+        t for t in trials
+        if _parse_date(t.admission_date)
+        and _parse_date(t.last_update_date)
+        and _parse_date(t.admission_date) > _parse_date(t.last_update_date)
+    ]
+    admission_after_completion = [
+        t for t in trials
+        if _parse_date(t.admission_date)
+        and _parse_date(t.primary_completion_date)
+        and _parse_date(t.admission_date) > _parse_date(t.primary_completion_date)
+    ]
+    negative_publication_lag = [
+        t for t in trials
+        if _parse_date(t.publication_date)
+        and _parse_date(t.primary_completion_date)
+        and _parse_date(t.publication_date) < _parse_date(t.primary_completion_date)
+    ]
+
     intervention_type_issues = []
     for t in trials:
         tokens = _split_csv(t.intervention_types)
@@ -300,6 +351,12 @@ def run(
     print(f"unknown_pdac_match_reason: {len(unknown_match_reason)}")
     for field, bad in invalid_dates.items():
         print(f"invalid_{field}: {len(bad)}")
+    print(f"invalid_publication_rows: {len(invalid_publication_rows)}")
+    print(f"invalid_publication_pmids: {len(invalid_publication_pmids)}")
+    print(f"duplicate_publication_rows: {len(duplicate_publications)}")
+    print(f"admission_after_last_update: {len(admission_after_update)}")
+    print(f"admission_after_primary_completion: {len(admission_after_completion)}")
+    print(f"negative_publication_lag: {len(negative_publication_lag)}")
     print(f"pubdate_coverage_of_pubmed: {pubdate_coverage_of_pubmed:.4f}")
     print(f"primary_completion_coverage: {primary_completion_coverage:.4f}")
     print(f"unknown_evidence_ratio: {unknown_evidence_ratio:.4f}")
@@ -339,6 +396,36 @@ def run(
         for t in invalid_secondary_ids[:limit]:
             print(f"{t.nct_id} | secondary_id={t.secondary_id}")
 
+    if len(invalid_publication_rows) > 0:
+        print_section(f"Invalid publication rows Sample (top {limit})")
+        for p in invalid_publication_rows[:limit]:
+            print(f"{p.nct_id} | pmid={p.pmid} | doi={p.doi}")
+
+    if len(invalid_publication_pmids) > 0:
+        print_section(f"Invalid publication PMIDs Sample (top {limit})")
+        for p in invalid_publication_pmids[:limit]:
+            print(f"{p.nct_id} | pmid={p.pmid} | doi={p.doi}")
+
+    if len(duplicate_publications) > 0:
+        print_section(f"Duplicate publication rows Sample (top {limit})")
+        for row in duplicate_publications[:limit]:
+            print(f"{row[0]} | pmid={row[1]} | doi={row[2]} | dupes={row[3]}")
+
+    if len(admission_after_update) > 0:
+        print_section(f"Admission after last update Sample (top {limit})")
+        for t in admission_after_update[:limit]:
+            print(f"{t.nct_id} | admission={t.admission_date} | last_update={t.last_update_date}")
+
+    if len(admission_after_completion) > 0:
+        print_section(f"Admission after primary completion Sample (top {limit})")
+        for t in admission_after_completion[:limit]:
+            print(f"{t.nct_id} | admission={t.admission_date} | primary_completion={t.primary_completion_date}")
+
+    if len(negative_publication_lag) > 0:
+        print_section(f"Negative publication lag Sample (top {limit})")
+        for t in negative_publication_lag[:limit]:
+            print(f"{t.nct_id} | primary_completion={t.primary_completion_date} | publication_date={t.publication_date}")
+
     if len(ctis_missing_key_fields) > 0:
         print_section(f"CTIS missing key fields Sample (top {limit})")
         for t in ctis_missing_key_fields[:limit]:
@@ -371,6 +458,9 @@ def run(
             + len(invalid_sources)
             + len(invalid_source_links)
             + len(invalid_secondary_ids)
+            + len(invalid_publication_rows)
+            + len(invalid_publication_pmids)
+            + len(duplicate_publications)
         )
         threshold_failures = 0
         if pubdate_coverage_of_pubmed < min_pubdate_coverage_of_pubmed:

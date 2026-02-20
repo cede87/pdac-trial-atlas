@@ -100,6 +100,11 @@ def _parse_date(value: str) -> Optional[date]:
     return None
 
 
+def _extract_year(value: str) -> Optional[int]:
+    parsed = _parse_date(value)
+    return parsed.year if parsed else None
+
+
 def _parse_pubmed_date(value: str) -> Optional[date]:
     if not value:
         return None
@@ -160,6 +165,106 @@ def _parse_nct_tokens(value: str) -> list[str]:
     for token in re.findall(r"(NCT\d+)", str(value), flags=re.I):
         tokens.append(token.upper())
     return list(dict.fromkeys(tokens))
+
+
+PUBMED_KEYWORD_STOPWORDS = {
+    "trial",
+    "study",
+    "phase",
+    "randomized",
+    "randomised",
+    "open",
+    "label",
+    "open-label",
+    "placebo",
+    "double",
+    "blind",
+    "multicenter",
+    "multi-center",
+    "clinical",
+    "patient",
+    "patients",
+    "participants",
+    "advanced",
+    "metastatic",
+    "resectable",
+    "unresectable",
+    "locally",
+    "solid",
+    "tumor",
+    "tumour",
+    "cancer",
+    "pancreatic",
+    "pancreas",
+    "pdac",
+    "therapy",
+    "treatment",
+    "intervention",
+    "interventions",
+    "drug",
+    "drugs",
+    "procedure",
+    "procedures",
+    "observational",
+    "interventional",
+    "assessment",
+    "safety",
+    "efficacy",
+    "evaluation",
+    "pilot",
+    "dose",
+    "escalation",
+    "cohort",
+    "primary",
+    "secondary",
+}
+
+
+PUBMED_KEYWORD_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9+/-]{2,}")
+
+
+def _extract_pubmed_keywords(details: Optional[ClinicalTrialDetails], max_keywords: int = 3, min_len: int = 4) -> list[str]:
+    if not details or max_keywords <= 0:
+        return []
+    text = " ".join(
+        [
+            _clean(details.interventions),
+            _clean(details.conditions),
+            _clean(details.primary_outcomes),
+            _clean(details.secondary_outcomes),
+        ]
+    )
+    tokens = PUBMED_KEYWORD_RE.findall(text)
+    if not tokens:
+        return []
+
+    cleaned = []
+    seen = set()
+    for token in tokens:
+        raw = token.strip().strip(",.;:")
+        if not raw or raw.isdigit():
+            continue
+        lower = raw.lower()
+        if lower in PUBMED_KEYWORD_STOPWORDS:
+            continue
+        if len(lower) < min_len and not any(ch.isdigit() for ch in raw):
+            continue
+        if lower in seen:
+            continue
+        seen.add(lower)
+        cleaned.append(raw)
+
+    if not cleaned:
+        return []
+
+    def score(value: str) -> tuple:
+        digit_bonus = 2 if any(ch.isdigit() for ch in value) else 0
+        symbol_bonus = 1 if any(ch in value for ch in ("-", "/", "+")) else 0
+        upper_bonus = 1 if value.isupper() else 0
+        return (digit_bonus + symbol_bonus + upper_bonus, len(value))
+
+    cleaned.sort(key=score, reverse=True)
+    return cleaned[:max_keywords]
 
 
 def _extract_pubmed_pmids(payload: dict) -> list[str]:
@@ -485,18 +590,36 @@ def _assign_method(
         method_by_pmid[pmid] = (method, conf)
 
 
-def _build_title_query(title: str, sponsor: str, admission_date: str) -> str:
+def _build_title_query(
+    title: str,
+    sponsor: str,
+    admission_date: str,
+    primary_completion_date: str,
+    *,
+    keywords: Optional[list[str]] = None,
+    year_lookback: int = 1,
+    year_lookahead: int = 12,
+) -> str:
     title_text = _clean(title)
     if not title_text:
         return ""
     query = f"({title_text}[Title]) AND (pancreatic OR pancreas OR PDAC)"
-    year = _clean(admission_date)[:4] if _clean(admission_date)[:4].isdigit() else ""
+    year = _extract_year(primary_completion_date) or _extract_year(admission_date)
     if year:
-        query += f" AND ({year}[Date - Publication] : 3000[Date - Publication])"
+        start_year = max(year - max(year_lookback, 0), 1900)
+        end_year = min(year + max(year_lookahead, 0), 3000)
+        query += f" AND ({start_year}[Date - Publication] : {end_year}[Date - Publication])"
     sponsor_text = _clean(sponsor)
     if sponsor_text and sponsor_text.lower() not in {"na", "unknown"}:
         # Sponsor affinity is a soft refinement that still keeps broad recall.
-        query += f" AND ({sponsor_text}[Affiliation] OR {sponsor_text}[Corporate Author])"
+        sponsor_chunk = sponsor_text.split(",")[0].strip()
+        if sponsor_chunk and len(sponsor_chunk) <= 80:
+            query += f" AND ({sponsor_chunk}[Affiliation] OR {sponsor_chunk}[Corporate Author])"
+    if keywords:
+        safe_keywords = [kw.replace('"', "").strip() for kw in keywords if kw and kw.strip()]
+        if safe_keywords:
+            kw_query = " OR ".join([f"\\\"{kw}\\\"[Title/Abstract]" for kw in safe_keywords])
+            query += f" AND ({kw_query})"
     return query
 
 
@@ -856,7 +979,25 @@ def rebuild_trial_publications(
 
         # 4) Title fallback for sparse rows.
         if not method_by_pmid and max_title_lookups > 0:
-            title_query = _build_title_query(trial.title, trial.sponsor, trial.admission_date)
+            keyword_limit = int(os.getenv("PUBMED_TITLE_KEYWORD_LIMIT", "3"))
+            keyword_min_len = int(os.getenv("PUBMED_TITLE_KEYWORD_MIN_LEN", "4"))
+            year_lookback = int(os.getenv("PUBMED_TITLE_YEAR_LOOKBACK", "1"))
+            year_lookahead = int(os.getenv("PUBMED_TITLE_YEAR_LOOKAHEAD", "12"))
+            details = session.get(ClinicalTrialDetails, trial.nct_id)
+            keywords = _extract_pubmed_keywords(
+                details,
+                max_keywords=keyword_limit,
+                min_len=keyword_min_len,
+            )
+            title_query = _build_title_query(
+                trial.title,
+                trial.sponsor,
+                trial.admission_date,
+                trial.primary_completion_date,
+                keywords=keywords,
+                year_lookback=year_lookback,
+                year_lookahead=year_lookahead,
+            )
             if title_query:
                 cached = search_cache.get(title_query)
                 if cached is None and title_lookups_used < max_title_lookups:

@@ -9,6 +9,7 @@ from db.models import ClinicalTrial, ClinicalTrialPublication
 from db.session import Base
 from scripts.ingest_clinicaltrials import (
     _search_pubmed_pmids,
+    _build_title_query,
     rebuild_trial_publications,
     refresh_trial_publication_summary,
 )
@@ -71,6 +72,24 @@ class PublicationIndexTests(unittest.TestCase):
         self.assertEqual(trial.publication_date, "2024-01-03")
         self.assertIn("12345678", trial.pubmed_links)
         session.close()
+
+    def test_build_title_query_includes_year_and_keywords(self):
+        query = _build_title_query(
+            "PDAC Trial Title",
+            "Example Sponsor, Inc.",
+            "2020-01-01",
+            "2021-06-01",
+            keywords=["KRAS", "Gemcitabine"],
+            year_lookback=1,
+            year_lookahead=5,
+        )
+        self.assertIn("(PDAC Trial Title[Title])", query)
+        self.assertIn("2020[Date - Publication]", query)
+        self.assertIn("2026[Date - Publication]", query)
+        self.assertIn("Example Sponsor[Affiliation]", query)
+        self.assertIn("KRAS", query)
+        self.assertIn("Gemcitabine", query)
+        self.assertIn("[Title/Abstract]", query)
 
     @patch("scripts.ingest_clinicaltrials._fetch_pubmed_summary")
     def test_rebuild_updates_existing_row_with_doi(self, mock_summary):
