@@ -82,11 +82,25 @@ def run(limit: int, strict: bool):
     unknown = [t for t in trials if (t.therapeutic_class or "") == "unknown"]
     unknown_with_tags = [t for t in unknown if (t.focus_tags or "").strip()]
 
-    mismatch_biomarker = [
-        t for t in trials
-        if (t.therapeutic_class == "biomarker_diagnostics")
-        and ("biomarker" not in (t.focus_tags or ""))
-    ]
+    biomarker_supporting_tags = {
+        "biomarker",
+        "early_detection",
+        "imaging_diagnostics",
+        "liquid_biopsy",
+        "genomics_precision",
+    }
+
+    mismatch_biomarker = []
+    for t in trials:
+        if t.therapeutic_class != "biomarker_diagnostics":
+            continue
+        tags = {
+            tag.strip().lower()
+            for tag in (t.focus_tags or "").split(",")
+            if tag.strip()
+        }
+        if not tags.intersection(biomarker_supporting_tags):
+            mismatch_biomarker.append(t)
     mismatch_nontherapeutic_interventional = [
         t for t in trials
         if (t.therapeutic_class == "observational_non_therapeutic")
@@ -194,7 +208,7 @@ def run(limit: int, strict: bool):
         print(f"{t.nct_id} | {t.study_type} | {t.phase} | {t.title}")
 
     print_section("Consistency Checks")
-    print(f"biomarker_class_without_biomarker_tag: {len(mismatch_biomarker)}")
+    print(f"biomarker_class_without_supporting_tag: {len(mismatch_biomarker)}")
     print(
         "observational_non_therapeutic_with_interventional_study_type: "
         f"{len(mismatch_nontherapeutic_interventional)}"
