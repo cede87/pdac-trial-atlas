@@ -526,6 +526,9 @@ def fetch_trials_pancreas(max_records: Optional[int] = None) -> List[Dict]:
             inclusion_criteria, exclusion_criteria = _extract_eligibility(eligibility_mod)
             interventions, intervention_types = _extract_interventions(arms_mod)
 
+            phases = [p for p in (design_mod.get("phases") or []) if p]
+            phase_value = "/".join(dict.fromkeys(phases)) if phases else "NA"
+
             all_studies.append(
                 {
                     "nct_id": nct_id,
@@ -534,11 +537,7 @@ def fetch_trials_pancreas(max_records: Optional[int] = None) -> List[Dict]:
                     "trial_link": f"https://clinicaltrials.gov/study/{nct_id}",
                     "title": title,
                     "study_type": study_type,
-                    "phase": (
-                        design_mod.get("phases", ["NA"])[0]
-                        if design_mod.get("phases")
-                        else "NA"
-                    ),
+                    "phase": phase_value,
                     "status": status_mod.get("overallStatus", "Unknown"),
                     "sponsor": sponsor_mod.get("leadSponsor", {}).get("name", "Unknown"),
                     "pdac_match_reason": pdac_match_reason(title),

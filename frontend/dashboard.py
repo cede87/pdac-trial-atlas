@@ -272,6 +272,7 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                 for token in (
                     "pubmed_links",
                     "trial_publications",
+                    "clinical_trial_details",
                     "is_full_match",
                     "primary_completion_date",
                     "publication_date",
@@ -391,12 +392,13 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
     )
     df["secondary_id"] = df["secondary_id"].fillna("").astype(str).str.strip()
     df["trial_link"] = df["trial_link"].fillna("").astype(str).str.strip()
+    missing_trial_link = df["trial_link"].eq("") | df["trial_link"].str.upper().eq("NA")
     df.loc[
-        (df["trial_link"] == "") & (df["nct_id"].astype(str).str.startswith("NCT")),
+        missing_trial_link & (df["nct_id"].astype(str).str.startswith("NCT")),
         "trial_link",
     ] = df["nct_id"].apply(lambda value: f"https://clinicaltrials.gov/study/{value}")
     df.loc[
-        (df["trial_link"] == "") & (~df["nct_id"].astype(str).str.startswith("NCT")),
+        missing_trial_link & (~df["nct_id"].astype(str).str.startswith("NCT")),
         "trial_link",
     ] = df["nct_id"].apply(
         lambda value: f"https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en&EUCT={value}"

@@ -230,6 +230,46 @@ def _is_full_publication_match(
     return int(confidence) >= int(full_match_min_confidence)
 
 
+def _merge_publication_rows(
+    primary: ClinicalTrialPublication,
+    secondary: ClinicalTrialPublication,
+) -> bool:
+    """
+    Merge duplicate publication rows into the primary record.
+    Returns True when any field is updated.
+    """
+    updated = False
+
+    if is_na(primary.pmid) and not is_na(secondary.pmid):
+        primary.pmid = _clean(secondary.pmid)
+        updated = True
+    if is_na(primary.doi) and not is_na(secondary.doi):
+        primary.doi = _normalize_doi(secondary.doi)
+        updated = True
+    if is_na(primary.publication_date) and not is_na(secondary.publication_date):
+        primary.publication_date = _clean(secondary.publication_date)
+        updated = True
+    if is_na(primary.publication_title) and not is_na(secondary.publication_title):
+        primary.publication_title = _clean(secondary.publication_title)
+        updated = True
+    if is_na(primary.journal) and not is_na(secondary.journal):
+        primary.journal = _clean(secondary.journal)
+        updated = True
+
+    primary_conf = int(primary.confidence or 0)
+    secondary_conf = int(secondary.confidence or 0)
+    if secondary_conf > primary_conf:
+        primary.match_method = secondary.match_method
+        primary.confidence = secondary.confidence
+        primary.is_full_match = secondary.is_full_match
+        updated = True
+    elif is_na(primary.is_full_match) and not is_na(secondary.is_full_match):
+        primary.is_full_match = secondary.is_full_match
+        updated = True
+
+    return updated
+
+
 def _search_pubmed_pmids(term: str, max_links: int = 5) -> list[str]:
     query = _clean(term)
     if not query:
@@ -720,13 +760,36 @@ def rebuild_trial_publications(
             .filter(ClinicalTrialPublication.nct_id == trial.nct_id)
             .all()
         )
-        existing_by_key: dict[tuple[str, str], ClinicalTrialPublication] = {}
+        existing_by_pmid: dict[str, ClinicalTrialPublication] = {}
+        existing_by_doi: dict[str, ClinicalTrialPublication] = {}
         for pub in existing_publications:
-            key = (_clean(pub.pmid), _normalize_doi(pub.doi))
-            if key in existing_by_key:
+            pmid_key = _clean(pub.pmid)
+            doi_key = _normalize_doi(pub.doi)
+            primary = None
+            if pmid_key and pmid_key in existing_by_pmid:
+                primary = existing_by_pmid[pmid_key]
+            elif doi_key and doi_key in existing_by_doi:
+                primary = existing_by_doi[doi_key]
+            if primary:
+                if _merge_publication_rows(primary, pub):
+                    updated_rows += 1
                 session.delete(pub)
+                if pmid_key:
+                    existing_by_pmid[pmid_key] = primary
+                if doi_key:
+                    existing_by_doi[doi_key] = primary
                 continue
-            existing_by_key[key] = pub
+
+            if pmid_key:
+                existing_by_pmid[pmid_key] = pub
+            if doi_key:
+                existing_by_doi[doi_key] = pub
+
+        unique_existing = {
+            id(pub): pub
+            for pub in (list(existing_by_pmid.values()) + list(existing_by_doi.values()))
+        }
+        for pub in unique_existing.values():
             expected_full = "yes" if _is_full_publication_match(
                 _clean(pub.match_method),
                 int(pub.confidence or 0),
@@ -738,7 +801,7 @@ def rebuild_trial_publications(
 
         if incremental_mode and not _should_scan_trial_incremental(
             trial,
-            list(existing_by_key.values()),
+            list(unique_existing.values()),
             refresh_days=refresh_days,
             retry_days_no_match=retry_days_no_match,
         ):
@@ -837,8 +900,16 @@ def rebuild_trial_publications(
             summary_cache.update(fetched)
             dirty_summary_pmids.update(fetched.keys())
 
-        inserted_keys = set()
+        dois_with_pmid = {
+            _normalize_doi(pub.doi)
+            for pub in unique_existing.values()
+            if _clean(pub.pmid) and _normalize_doi(pub.doi)
+        }
+        seen_pmids = set()
         for pmid in pmids:
+            if pmid in seen_pmids:
+                continue
+            seen_pmids.add(pmid)
             summary = summary_cache.get(pmid, {}) or {}
             method, confidence = method_by_pmid.get(pmid, ("title_fuzzy", 70))
             publication_date = ""
@@ -848,11 +919,7 @@ def rebuild_trial_publications(
             doi = _normalize_doi(summary.get("doi"))
             if doi:
                 raw_dois.add(doi)
-
-            key = (pmid, doi)
-            if key in inserted_keys:
-                continue
-            inserted_keys.add(key)
+                dois_with_pmid.add(doi)
             is_full_match = _is_full_publication_match(
                 method,
                 confidence,
@@ -860,22 +927,45 @@ def rebuild_trial_publications(
             )
             full_value = "yes" if is_full_match else "no"
 
-            existing = existing_by_key.get(key)
+            existing = existing_by_pmid.get(pmid)
+            if existing is None and doi:
+                candidate = existing_by_doi.get(doi)
+                if candidate and _clean(candidate.pmid) and _clean(candidate.pmid) != pmid:
+                    candidate = None
+                if candidate:
+                    existing = candidate
+                    if not _clean(existing.pmid):
+                        existing.pmid = pmid
+
             if existing:
                 should_update = int(confidence) >= int(existing.confidence or 0)
+                row_updated = False
+                if publication_date and is_na(existing.publication_date):
+                    existing.publication_date = publication_date
+                    row_updated = True
+                if _clean(summary.get("publication_title")) and is_na(existing.publication_title):
+                    existing.publication_title = _clean(summary.get("publication_title"))
+                    row_updated = True
+                if _clean(summary.get("journal")) and is_na(existing.journal):
+                    existing.journal = _clean(summary.get("journal"))
+                    row_updated = True
+                if doi and is_na(existing.doi):
+                    existing.doi = doi
+                    row_updated = True
                 if should_update:
-                    existing.publication_date = publication_date or existing.publication_date or "NA"
-                    existing.publication_title = _clean(summary.get("publication_title")) or existing.publication_title or "NA"
-                    existing.journal = _clean(summary.get("journal")) or existing.journal or "NA"
                     existing.match_method = method
                     existing.confidence = confidence
                     existing.is_full_match = full_value
-                    if doi and not _clean(existing.doi):
-                        existing.doi = doi
-                    updated_rows += 1
+                    row_updated = True
                 elif (existing.is_full_match or "").strip().lower() != full_value:
                     existing.is_full_match = full_value
+                    row_updated = True
+                if row_updated:
                     updated_rows += 1
+
+                existing_by_pmid[pmid] = existing
+                if doi:
+                    existing_by_doi[doi] = existing
                 continue
 
             new_row = ClinicalTrialPublication(
@@ -890,25 +980,24 @@ def rebuild_trial_publications(
                 is_full_match=full_value,
             )
             session.add(new_row)
-            existing_by_key[key] = new_row
+            existing_by_pmid[pmid] = new_row
+            if doi:
+                existing_by_doi[doi] = new_row
             inserted_rows += 1
 
         # Keep DOI-only records when no PMID mapping exists.
-        pmid_set = set(pmids)
         for doi in sorted(raw_dois):
             if not doi:
                 continue
-            if any(doi == _normalize_doi(summary_cache.get(pmid, {}).get("doi")) for pmid in pmid_set):
+            if doi in dois_with_pmid:
                 continue
-            key = ("", doi)
-            if key in existing_by_key:
-                existing = existing_by_key[key]
+            existing = existing_by_doi.get(doi)
+            if existing:
                 if (existing.is_full_match or "").strip().lower() != "yes":
                     existing.is_full_match = "yes"
                     updated_rows += 1
                 continue
-            session.add(
-                ClinicalTrialPublication(
+            new_row = ClinicalTrialPublication(
                     nct_id=trial.nct_id,
                     pmid=None,
                     doi=doi,
@@ -918,8 +1007,9 @@ def rebuild_trial_publications(
                     match_method="doi_reference",
                     confidence=PUBLICATION_METHOD_CONFIDENCE["doi_reference"],
                     is_full_match="yes",
-                )
             )
+            session.add(new_row)
+            existing_by_doi[doi] = new_row
             inserted_rows += 1
 
         trial.publication_scan_date = date.today().isoformat()

@@ -72,6 +72,57 @@ class PublicationIndexTests(unittest.TestCase):
         self.assertIn("12345678", trial.pubmed_links)
         session.close()
 
+    @patch("scripts.ingest_clinicaltrials._fetch_pubmed_summary")
+    def test_rebuild_updates_existing_row_with_doi(self, mock_summary):
+        mock_summary.return_value = {
+            "12345678": {
+                "publication_date_raw": "2024 Jan 03",
+                "publication_title": "Pancreatic trial publication",
+                "journal": "J Clin Oncol",
+                "doi": "10.1000/j.jco.2024.01.003",
+            }
+        }
+        session = self.Session()
+        session.add(
+            ClinicalTrial(
+                nct_id="NCT10000002",
+                title="PDAC Trial",
+                pubmed_links="https://pubmed.ncbi.nlm.nih.gov/12345678/",
+                has_results="no",
+            )
+        )
+        session.add(
+            ClinicalTrialPublication(
+                nct_id="NCT10000002",
+                pmid="12345678",
+                doi="",
+                publication_date="NA",
+                publication_title="NA",
+                journal="NA",
+                match_method="pubmed_link",
+                confidence=98,
+                is_full_match="yes",
+            )
+        )
+        session.commit()
+
+        rebuild_trial_publications(
+            session,
+            max_nct_lookups=0,
+            max_title_lookups=0,
+            max_doi_lookups=0,
+            max_links_per_trial=5,
+            incremental_mode=False,
+        )
+        pubs = (
+            session.query(ClinicalTrialPublication)
+            .filter(ClinicalTrialPublication.nct_id == "NCT10000002")
+            .all()
+        )
+        self.assertEqual(len(pubs), 1)
+        self.assertEqual(pubs[0].doi, "10.1000/j.jco.2024.01.003")
+        session.close()
+
     @patch("scripts.ingest_clinicaltrials._search_pubmed_pmids")
     @patch("scripts.ingest_clinicaltrials._fetch_pubmed_summary")
     def test_rebuild_title_fallback_when_no_ids(self, mock_summary, mock_search):

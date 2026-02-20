@@ -70,6 +70,15 @@ Recommended run modes:
 - Full publication re-index (occasional deep refresh):
   - `PYTHONPATH=. PUBMED_PUBLICATION_MODE=full python3 scripts/ingest_clinicaltrials.py`
 
+One-command dataset release build (CSV + Parquet + schema + checksums + zip):
+- `./scripts/release_dataset.sh`
+- Optional controls:
+  - `RUN_FULL_INDEX=1` (default) or `0`
+  - `RUN_TESTS=1` (default) or `0`
+  - `RUN_QA=1` (default) or `0`
+  - `DATASET_VERSION=1.4`
+- Note: generated dataset artifacts (`dataset/README.md`, `dataset/schema.json`, CSV/Parquet, checksums, zip) are git-ignored and produced per release run.
+
 CTIS controls (optional):
 - `INGEST_CTIS=0` skip CTIS for a run
 - `CTIS_QUERY_TERMS=pancreatic,pancreas,pdac,pancreatic cancer` to set custom CTIS search terms
