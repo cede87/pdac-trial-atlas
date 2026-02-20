@@ -1,6 +1,6 @@
 """SQLAlchemy models."""
 
-from sqlalchemy import Column, ForeignKey, String, Text
+from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from db.session import Base
 
 
@@ -26,6 +26,12 @@ class ClinicalTrial(Base):
     results_last_update = Column(String)
     pubmed_links = Column(Text)
     intervention_types = Column(String)
+    primary_completion_date = Column(String)
+    publication_date = Column(String)
+    publication_scan_date = Column(String)
+    publication_lag_days = Column(Integer)
+    evidence_strength = Column(String)
+    dead_end = Column(String)
 
     # Semantic classification
     therapeutic_class = Column(String)
@@ -46,3 +52,18 @@ class ClinicalTrialDetails(Base):
     locations = Column(Text)
     brief_summary = Column(Text)
     detailed_description = Column(Text)
+
+
+class ClinicalTrialPublication(Base):
+    __tablename__ = "trial_publications"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nct_id = Column(String, ForeignKey("clinical_trials.nct_id"), index=True)
+    pmid = Column(String, index=True)
+    doi = Column(String, index=True)
+    publication_date = Column(String)
+    publication_title = Column(Text)
+    journal = Column(Text)
+    match_method = Column(String)
+    confidence = Column(Integer)
+    is_full_match = Column(String)

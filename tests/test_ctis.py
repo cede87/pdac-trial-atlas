@@ -2,6 +2,7 @@ import unittest
 
 from ingest.ctis import (
     DEFAULT_CTIS_PDAC_QUERY_TERMS,
+    _extract_primary_completion_date,
     _extract_interventions,
     _extract_pubmed_links_from_references,
     _extract_additional_focus_tags,
@@ -105,6 +106,14 @@ class CtisNormalizationTests(unittest.TestCase):
         links = _extract_pubmed_links_from_references(details)
         self.assertIn("https://pubmed.ncbi.nlm.nih.gov/12345678/", links)
         self.assertIn("https://doi.org/10.1200/JCO.123.456", links)
+
+    def test_extract_primary_completion_date_from_ctis_details(self):
+        overview = {}
+        details = {
+            "endDateEU": "2025-08-14T00:00:00"
+        }
+        value = _extract_primary_completion_date(overview, details)
+        self.assertEqual(value, "2025-08-14")
 
 
 if __name__ == "__main__":

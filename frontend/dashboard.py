@@ -137,9 +137,16 @@ def build_display_df(filtered: pd.DataFrame) -> pd.DataFrame:
                 "therapeutic_class",
                 "admission_date",
                 "last_update_date",
+                "primary_completion_date",
                 "has_results",
                 "results_last_update",
                 "pubmed_links",
+                "publication_date",
+                "publication_lag_days",
+                "publication_count",
+                "publication_match_methods",
+                "evidence_strength",
+                "dead_end",
                 "conditions",
                 "interventions",
                 "intervention_types",
@@ -170,9 +177,16 @@ def build_display_df(filtered: pd.DataFrame) -> pd.DataFrame:
                 "therapeutic_class": "Therapeutic Class",
                 "admission_date": "Admission Date",
                 "last_update_date": "Last Update",
+                "primary_completion_date": "Primary Completion",
                 "has_results": "Results",
                 "results_last_update": "Results Update",
                 "pubmed_links": "Paper Link",
+                "publication_date": "Publication Date",
+                "publication_lag_days": "Publication Lag (days)",
+                "publication_count": "Publication Count",
+                "publication_match_methods": "Publication Match Methods",
+                "evidence_strength": "Evidence Strength",
+                "dead_end": "Dead End",
                 "conditions": "Conditions",
                 "interventions": "Interventions",
                 "intervention_types": "Intervention Types",
@@ -214,9 +228,16 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                     c.sponsor,
                     c.admission_date,
                     c.last_update_date,
+                    c.primary_completion_date,
                     c.has_results,
                     c.results_last_update,
                     c.pubmed_links,
+                    c.publication_date,
+                    c.publication_lag_days,
+                    COALESCE(pub.publication_count, 0) AS publication_count,
+                    COALESCE(pub.match_methods, 'NA') AS publication_match_methods,
+                    c.evidence_strength,
+                    c.dead_end,
                     c.intervention_types,
                     c.therapeutic_class,
                     c.focus_tags,
@@ -232,12 +253,34 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                     d.detailed_description
                 FROM clinical_trials c
                 LEFT JOIN clinical_trial_details d ON d.nct_id = c.nct_id
+                LEFT JOIN (
+                    SELECT
+                        nct_id,
+                        COUNT(*) AS publication_count,
+                        GROUP_CONCAT(DISTINCT match_method) AS match_methods
+                    FROM trial_publications
+                    WHERE LOWER(COALESCE(is_full_match, 'yes')) = 'yes'
+                    GROUP BY nct_id
+                ) pub ON pub.nct_id = c.nct_id
                 ORDER BY c.nct_id
                 """,
                 conn,
             )
         except Exception as exc:
-            if "pubmed_links" not in str(exc).lower():
+            if not any(
+                token in str(exc).lower()
+                for token in (
+                    "pubmed_links",
+                    "trial_publications",
+                    "clinical_trial_details",
+                    "is_full_match",
+                    "primary_completion_date",
+                    "publication_date",
+                    "publication_lag_days",
+                    "evidence_strength",
+                    "dead_end",
+                )
+            ):
                 raise
             df = pd.read_sql_query(
                 """
@@ -276,6 +319,13 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                 conn,
             )
             df["pubmed_links"] = ""
+            df["primary_completion_date"] = ""
+            df["publication_date"] = ""
+            df["publication_lag_days"] = ""
+            df["publication_count"] = 0
+            df["publication_match_methods"] = "NA"
+            df["evidence_strength"] = ""
+            df["dead_end"] = ""
     finally:
         conn.close()
 
@@ -292,9 +342,16 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
         "sponsor",
         "admission_date",
         "last_update_date",
+        "primary_completion_date",
         "has_results",
         "results_last_update",
         "pubmed_links",
+        "publication_date",
+        "publication_lag_days",
+        "publication_count",
+        "publication_match_methods",
+        "evidence_strength",
+        "dead_end",
         "conditions",
         "interventions",
         "intervention_types",
@@ -335,16 +392,22 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
     )
     df["secondary_id"] = df["secondary_id"].fillna("").astype(str).str.strip()
     df["trial_link"] = df["trial_link"].fillna("").astype(str).str.strip()
+    missing_trial_link = df["trial_link"].eq("") | df["trial_link"].str.upper().eq("NA")
     df.loc[
-        (df["trial_link"] == "") & (df["nct_id"].astype(str).str.startswith("NCT")),
+        missing_trial_link & (df["nct_id"].astype(str).str.startswith("NCT")),
         "trial_link",
     ] = df["nct_id"].apply(lambda value: f"https://clinicaltrials.gov/study/{value}")
     df.loc[
-        (df["trial_link"] == "") & (~df["nct_id"].astype(str).str.startswith("NCT")),
+        missing_trial_link & (~df["nct_id"].astype(str).str.startswith("NCT")),
         "trial_link",
     ] = df["nct_id"].apply(
         lambda value: f"https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en&EUCT={value}"
     )
+    df["publication_count"] = pd.to_numeric(df["publication_count"], errors="coerce").fillna(0).astype(int)
+    df["publication_match_methods"] = (
+        df["publication_match_methods"].fillna("").astype(str).str.strip()
+    )
+    df.loc[df["publication_match_methods"] == "", "publication_match_methods"] = "NA"
 
     df = df[expected_cols]
     return df.fillna("")
@@ -391,6 +454,29 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     results_options = sorted([x for x in df["has_results"].unique() if x])
     selected_results = st.sidebar.multiselect("Results", results_options)
 
+    publication_presence = st.sidebar.multiselect(
+        "Publication index",
+        ["yes", "no"],
+    )
+
+    publication_method_options = sorted(
+        {
+            item
+            for raw in df["publication_match_methods"].tolist()
+            for item in split_csv_values(raw)
+        }
+    )
+    selected_publication_methods = st.sidebar.multiselect(
+        "Publication match method",
+        publication_method_options,
+    )
+
+    evidence_options = sorted([x for x in df["evidence_strength"].unique() if x])
+    selected_evidence = st.sidebar.multiselect("Evidence strength", evidence_options)
+
+    dead_end_options = sorted([x for x in df["dead_end"].unique() if x])
+    selected_dead_end = st.sidebar.multiselect("Dead end", dead_end_options)
+
     admission_years = sorted({_year_from_date(x) for x in df["admission_date"] if _year_from_date(x)})
     selected_admission_years = st.sidebar.multiselect("Admission year", admission_years)
 
@@ -426,6 +512,24 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
         ]
     if selected_results:
         out = out[out["has_results"].isin(selected_results)]
+    if publication_presence:
+        wants_yes = "yes" in publication_presence
+        wants_no = "no" in publication_presence
+        if wants_yes and not wants_no:
+            out = out[pd.to_numeric(out["publication_count"], errors="coerce").fillna(0) > 0]
+        elif wants_no and not wants_yes:
+            out = out[pd.to_numeric(out["publication_count"], errors="coerce").fillna(0) <= 0]
+    if selected_publication_methods:
+        selected_set = set(selected_publication_methods)
+        out = out[
+            out["publication_match_methods"].apply(
+                lambda raw: bool(selected_set.intersection(split_csv_values(raw)))
+            )
+        ]
+    if selected_evidence:
+        out = out[out["evidence_strength"].isin(selected_evidence)]
+    if selected_dead_end:
+        out = out[out["dead_end"].isin(selected_dead_end)]
     if selected_admission_years:
         out = out[out["admission_date"].apply(lambda x: _year_from_date(x) in selected_admission_years)]
     if selected_update_years:
@@ -441,7 +545,7 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     st.sidebar.markdown("<div style='height:0.35rem;'></div>", unsafe_allow_html=True)
     st.sidebar.markdown(
         "<div style='display:flex; gap:0.25rem; align-items:center;'>"
-        "<span class='sidebar-version-footer'>v1.3</span>"
+        "<span class='sidebar-version-footer'>v1.4</span>"
         "<span class='sidebar-version-footer'>MIT License</span>"
         "</div>",
         unsafe_allow_html=True,
@@ -525,6 +629,9 @@ def render_explorer(filtered: pd.DataFrame):
         "Status",
         "Sponsor",
         "Therapeutic Class",
+        "Evidence Strength",
+        "Dead End",
+        "Publication Count",
         "Paper Link",
         "Intervention Types",
         "Admission Date",
@@ -613,9 +720,16 @@ def render_explorer(filtered: pd.DataFrame):
                 "Therapeutic Class": "Normalized therapy strategy class.",
                 "Admission Date": "Initial registration/posting date.",
                 "Last Update": "Latest update date reported.",
+                "Primary Completion": "Primary completion date (when available).",
                 "Results": "Whether source indicates result availability.",
                 "Results Update": "Date associated with results publication/update.",
                 "Paper Link": "First linked PubMed paper found by NCT.",
+                "Publication Date": "Earliest linked PubMed publication date (when available).",
+                "Publication Lag (days)": "Publication date minus primary completion date.",
+                "Publication Count": "Number of full-match publication records linked to this trial.",
+                "Publication Match Methods": "Methods used for full-match publication linking.",
+                "Evidence Strength": "Heuristic evidence strength based on phase, results, and timing.",
+                "Dead End": "Phase >=2, completed/terminated, no publication after 5 years.",
                 "Conditions": "Reported study conditions.",
                 "Interventions": "Interventions with type and name.",
                 "Intervention Types": "Unique intervention type(s) only.",
@@ -661,6 +775,8 @@ def render_explorer(filtered: pd.DataFrame):
                 gb.configure_column("Admission Date", minWidth=125, maxWidth=170)
             if "Last Update" in display_df.columns:
                 gb.configure_column("Last Update", minWidth=125, maxWidth=170)
+            if "Primary Completion" in display_df.columns:
+                gb.configure_column("Primary Completion", minWidth=145, maxWidth=185)
             if "Results" in display_df.columns:
                 gb.configure_column("Results", minWidth=90, maxWidth=115)
             if "Results Update" in display_df.columns:
@@ -672,6 +788,18 @@ def render_explorer(filtered: pd.DataFrame):
                     flex=1.35,
                     cellStyle={"color": "#2f7a66", "textDecoration": "underline"},
                 )
+            if "Publication Date" in display_df.columns:
+                gb.configure_column("Publication Date", minWidth=145, maxWidth=190)
+            if "Publication Lag (days)" in display_df.columns:
+                gb.configure_column("Publication Lag (days)", minWidth=155, maxWidth=210)
+            if "Publication Count" in display_df.columns:
+                gb.configure_column("Publication Count", minWidth=130, maxWidth=170)
+            if "Publication Match Methods" in display_df.columns:
+                gb.configure_column("Publication Match Methods", minWidth=175, maxWidth=260)
+            if "Evidence Strength" in display_df.columns:
+                gb.configure_column("Evidence Strength", minWidth=145, maxWidth=185)
+            if "Dead End" in display_df.columns:
+                gb.configure_column("Dead End", minWidth=95, maxWidth=120)
             if "Intervention Types" in display_df.columns:
                 gb.configure_column("Intervention Types", minWidth=145, maxWidth=210)
             if "Conditions" in display_df.columns:
@@ -1124,6 +1252,259 @@ def render_analytics(filtered: pd.DataFrame):
             )
         )
         st.altair_chart(themed_chart(design_chart), width="stretch")
+
+    st.markdown("")
+    quality_df = filtered.copy()
+    quality_df["publication_date_dt"] = pd.to_datetime(
+        quality_df["publication_date"], errors="coerce"
+    )
+    quality_df["primary_completion_date_dt"] = pd.to_datetime(
+        quality_df["primary_completion_date"], errors="coerce"
+    )
+    quality_df["raw_lag_days"] = (
+        quality_df["publication_date_dt"] - quality_df["primary_completion_date_dt"]
+    ).dt.days
+    quality_df["has_pubmed"] = (
+        quality_df["pubmed_links"].fillna("").astype(str).str.strip().str.upper() != "NA"
+    ) & (
+        quality_df["pubmed_links"].fillna("").astype(str).str.strip() != ""
+    )
+
+    negative_lag_anomalies = int((quality_df["raw_lag_days"] < 0).sum())
+    missing_pub_date_with_pubmed = int(
+        (quality_df["has_pubmed"] & quality_df["publication_date_dt"].isna()).sum()
+    )
+    unknown_like_class = int(
+        filtered["therapeutic_class"]
+        .fillna("")
+        .astype(str)
+        .str.lower()
+        .isin({"", "na", "unknown", "context_classified"})
+        .sum()
+    )
+    unknown_evidence = int(
+        filtered["evidence_strength"]
+        .fillna("")
+        .astype(str)
+        .str.lower()
+        .isin({"", "na", "unknown"})
+        .sum()
+    )
+    publication_index_count = int(
+        (pd.to_numeric(filtered["publication_count"], errors="coerce").fillna(0) > 0).sum()
+    )
+    publication_index_coverage = (
+        (publication_index_count / len(filtered) * 100.0) if len(filtered) else 0.0
+    )
+    publication_date_coverage = (
+        (
+            quality_df["publication_date_dt"].notna()
+            & (pd.to_numeric(filtered["publication_count"], errors="coerce").fillna(0) > 0)
+        ).sum()
+        / publication_index_count
+        * 100.0
+        if publication_index_count
+        else 0.0
+    )
+    primary_completion_coverage = (
+        quality_df["primary_completion_date_dt"].notna().sum() / len(filtered) * 100.0
+        if len(filtered)
+        else 0.0
+    )
+
+    q1, q2, q3, q4 = st.columns(4)
+    with q1:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Negative Lag Anomalies</div>'
+            f'<div class="metric-value">{negative_lag_anomalies:,}</div></div>',
+            unsafe_allow_html=True,
+        )
+    with q2:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">PubMed Without Publication Date</div>'
+            f'<div class="metric-value">{missing_pub_date_with_pubmed:,}</div></div>',
+            unsafe_allow_html=True,
+        )
+    with q3:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Unknown-like Therapeutic Class</div>'
+            f'<div class="metric-value">{unknown_like_class:,}</div></div>',
+            unsafe_allow_html=True,
+        )
+    with q4:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Unknown Evidence Strength</div>'
+            f'<div class="metric-value">{unknown_evidence:,}</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Full-Match Publication Coverage</div>'
+            f'<div class="metric-value">{publication_index_coverage:.1f}%</div></div>',
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Publication Date Coverage (Indexed)</div>'
+            f'<div class="metric-value">{publication_date_coverage:.1f}%</div></div>',
+            unsafe_allow_html=True,
+        )
+    with c3:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Primary Completion Coverage</div>'
+            f'<div class="metric-value">{primary_completion_coverage:.1f}%</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    st.caption(
+        "Negative lag anomalies (publication before primary completion) are excluded from lag analytics."
+    )
+
+    lag_df = filtered.copy()
+    lag_df["publication_lag_days"] = pd.to_numeric(
+        lag_df["publication_lag_days"], errors="coerce"
+    )
+    lag_df["phase"] = lag_df["phase"].fillna("").astype(str)
+    lag_df = lag_df[(lag_df["publication_lag_days"].notna()) & (lag_df["publication_lag_days"] >= 0)]
+
+    lag_median = int(lag_df["publication_lag_days"].median()) if not lag_df.empty else 0
+    st.markdown(
+        f'<div class="metric-card" style="max-width:260px;">'
+        f'<div class="metric-label">Median Publication Lag (days)</div>'
+        f'<div class="metric-value">{lag_median:,}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    if lag_df.empty:
+        st.info("No non-negative publication lag values are available for the current filters.")
+    else:
+        lag_chart = (
+            alt.Chart(lag_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("publication_lag_days:Q", bin=alt.Bin(maxbins=30), title="Publication lag (days)"),
+                y=alt.Y("count():Q", title="Trials"),
+                tooltip=["count():Q"],
+            )
+            .properties(
+                title="Publication Lag Histogram",
+                height=320,
+            )
+        )
+        st.altair_chart(themed_chart(lag_chart), width="stretch")
+
+        phase_lag_df = (
+            lag_df.groupby("phase", dropna=False)["publication_lag_days"]
+            .median()
+            .reset_index()
+            .rename(columns={"publication_lag_days": "median_lag_days"})
+        )
+        phase_lag_chart = (
+            alt.Chart(phase_lag_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("phase:N", sort="-y", title="Phase"),
+                y=alt.Y("median_lag_days:Q", title="Median lag (days)"),
+                tooltip=["phase:N", "median_lag_days:Q"],
+            )
+            .properties(
+                title="Publication Lag by Phase (Median)",
+                height=320,
+            )
+        )
+        st.altair_chart(themed_chart(phase_lag_chart), width="stretch")
+
+    st.markdown("")
+    phase_raw = filtered["phase"].fillna("").astype(str).str.lower()
+    phase1 = phase_raw.str.contains(r"phase\s*i\b|phase\s*1", regex=True)
+    phase2 = phase_raw.str.contains(r"phase\s*ii\b|phase\s*2", regex=True)
+    phase3 = phase_raw.str.contains(r"phase\s*iii\b|phase\s*3", regex=True)
+    pub_links = filtered["pubmed_links"].fillna("").astype(str).str.strip()
+    published = (pub_links != "") & (pub_links.str.upper() != "NA")
+
+    phase1_count = int(phase1.sum())
+    phase2_count = int(phase2.sum())
+    phase3_count = int(phase3.sum())
+    published_count = int(published.sum())
+    funnel_base = max(phase1_count, 1)
+
+    funnel_df = pd.DataFrame(
+        {
+            "stage": ["Phase I", "Phase II", "Phase III", "Published"],
+            "count": [phase1_count, phase2_count, phase3_count, published_count],
+        }
+    )
+    funnel_df["percent_of_phase1"] = (funnel_df["count"] / funnel_base * 100).round(1)
+
+    funnel_chart = (
+        alt.Chart(funnel_df)
+        .mark_bar()
+        .encode(
+            x=alt.X("stage:N", sort=None, title="Funnel stage"),
+            y=alt.Y("count:Q", title="Count"),
+            tooltip=["stage:N", "count:Q", "percent_of_phase1:Q"],
+        )
+        .properties(
+            title="Failure Funnel (Phase I → Phase II → Phase III → Published)",
+            height=320,
+        )
+    )
+    st.altair_chart(themed_chart(funnel_chart), width="stretch")
+
+    evidence_df = (
+        filtered["evidence_strength"]
+        .replace("", "unknown")
+        .value_counts()
+        .rename_axis("evidence_strength")
+        .reset_index(name="count")
+    )
+    evidence_chart = (
+        alt.Chart(evidence_df)
+        .mark_bar()
+        .encode(
+            x=alt.X("evidence_strength:N", sort="-y", title="Evidence strength"),
+            y=alt.Y("count:Q", title="Count"),
+            tooltip=["evidence_strength:N", "count:Q"],
+        )
+        .properties(
+            title="Evidence Strength Distribution",
+            height=320,
+        )
+    )
+    st.altair_chart(themed_chart(evidence_chart), width="stretch")
+
+    publication_method_series = (
+        filtered["publication_match_methods"]
+        .apply(split_csv_values)
+        .explode()
+        .dropna()
+    )
+    if publication_method_series.empty:
+        publication_method_df = pd.DataFrame(
+            {"publication_match_method": ["NA"], "count": [0]}
+        )
+    else:
+        publication_method_df = (
+            publication_method_series.value_counts()
+            .rename_axis("publication_match_method")
+            .reset_index(name="count")
+        )
+    publication_method_chart = (
+        alt.Chart(publication_method_df)
+        .mark_bar()
+        .encode(
+            x=alt.X("publication_match_method:N", sort="-y", title="Publication match method"),
+            y=alt.Y("count:Q", title="Count"),
+            tooltip=["publication_match_method:N", "count:Q"],
+        )
+        .properties(
+            title="Publication Match Method Distribution",
+            height=320,
+        )
+    )
+    st.altair_chart(themed_chart(publication_method_chart), width="stretch")
 
 
 def main():

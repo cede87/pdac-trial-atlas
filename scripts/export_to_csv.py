@@ -5,7 +5,8 @@ validation, and downstream analysis.
 
 import csv
 from db.session import SessionLocal
-from db.models import ClinicalTrial, ClinicalTrialDetails
+from db.models import ClinicalTrial, ClinicalTrialDetails, ClinicalTrialPublication
+from sqlalchemy import text
 
 
 OUTPUT_FILE = "pdac_trials_export.csv"
@@ -14,7 +15,38 @@ OUTPUT_FILE = "pdac_trials_export.csv"
 def run():
     db = SessionLocal()
 
+    db.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS trial_publications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nct_id TEXT NOT NULL,
+                pmid TEXT,
+                doi TEXT,
+                publication_date TEXT,
+                publication_title TEXT,
+                journal TEXT,
+                match_method TEXT,
+                confidence INTEGER,
+                is_full_match TEXT
+            )
+            """
+        )
+    )
     trials = db.query(ClinicalTrial).order_by(ClinicalTrial.nct_id).all()
+    publication_columns = {
+        row[1] for row in db.execute(text("PRAGMA table_info(trial_publications)")).fetchall()
+    }
+    if "is_full_match" not in publication_columns:
+        db.execute(text("ALTER TABLE trial_publications ADD COLUMN is_full_match TEXT"))
+        db.execute(
+            text(
+                "UPDATE trial_publications SET is_full_match = CASE WHEN COALESCE(confidence, 0) >= 80 THEN 'yes' ELSE 'no' END"
+            )
+        )
+        publication_columns.add("is_full_match")
+        db.commit()
+    has_full_match_column = "is_full_match" in publication_columns
 
     with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -35,9 +67,17 @@ def run():
             "sponsor",
             "admission_date",
             "last_update_date",
+            "primary_completion_date",
             "has_results",
             "results_last_update",
             "pubmed_links",
+            "publication_date",
+            "publication_scan_date",
+            "publication_lag_days",
+            "evidence_strength",
+            "dead_end",
+            "publication_count",
+            "publication_match_methods",
             "conditions",
             "interventions",
             "intervention_types",
@@ -58,6 +98,23 @@ def run():
         # --------------------------------------------------
         for t in trials:
             d = db.get(ClinicalTrialDetails, t.nct_id)
+            pubs_query = (
+                db.query(ClinicalTrialPublication)
+                .filter(ClinicalTrialPublication.nct_id == t.nct_id)
+            )
+            if has_full_match_column:
+                pubs_query = pubs_query.filter(ClinicalTrialPublication.is_full_match == "yes")
+            pubs = pubs_query.all()
+            publication_count = len(pubs)
+            publication_match_methods = ",".join(
+                sorted(
+                    {
+                        (p.match_method or "").strip()
+                        for p in pubs
+                        if (p.match_method or "").strip()
+                    }
+                )
+            ) or "NA"
             writer.writerow([
                 t.nct_id,
                 t.source,
@@ -71,9 +128,17 @@ def run():
                 t.sponsor,
                 t.admission_date,
                 t.last_update_date,
+                t.primary_completion_date,
                 t.has_results,
                 t.results_last_update,
                 t.pubmed_links,
+                t.publication_date,
+                t.publication_scan_date,
+                t.publication_lag_days,
+                t.evidence_strength,
+                t.dead_end,
+                publication_count,
+                publication_match_methods,
                 (d.conditions if d else "NA"),
                 (d.interventions if d else "NA"),
                 t.intervention_types,

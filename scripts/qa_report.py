@@ -6,8 +6,9 @@ import argparse
 import re
 from collections import Counter
 
-from db.models import ClinicalTrial, ClinicalTrialDetails
+from db.models import ClinicalTrial, ClinicalTrialDetails, ClinicalTrialPublication
 from db.session import SessionLocal
+from sqlalchemy import text
 
 
 def print_section(title: str):
@@ -30,6 +31,9 @@ KNOWN_INTERVENTION_TYPES = {
     "RADIATION",
 }
 ALLOWED_SOURCES = {"clinicaltrials.gov", "ctis", "clinicaltrials.gov+ctis", "na"}
+DEFAULT_MIN_PUBDATE_COVERAGE_OF_PUBMED = 0.90
+DEFAULT_MIN_PRIMARY_COMPLETION_COVERAGE = 0.50
+DEFAULT_MAX_UNKNOWN_EVIDENCE_RATIO = 0.80
 
 
 def _is_na(value: str) -> bool:
@@ -67,10 +71,52 @@ def _link_matches_source(source: str, link: str) -> bool:
     return False
 
 
-def run(limit: int, strict: bool):
+def run(
+    limit: int,
+    strict: bool,
+    min_pubdate_coverage_of_pubmed: float,
+    min_primary_completion_coverage: float,
+    max_unknown_evidence_ratio: float,
+):
     db = SessionLocal()
     trials = db.query(ClinicalTrial).all()
     details = db.query(ClinicalTrialDetails).all()
+    db.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS trial_publications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nct_id TEXT NOT NULL,
+                pmid TEXT,
+                doi TEXT,
+                publication_date TEXT,
+                publication_title TEXT,
+                journal TEXT,
+                match_method TEXT,
+                confidence INTEGER,
+                is_full_match TEXT
+            )
+            """
+        )
+    )
+    publication_columns = {
+        row[1] for row in db.execute(text("PRAGMA table_info(trial_publications)")).fetchall()
+    }
+    if "is_full_match" not in publication_columns:
+        db.execute(text("ALTER TABLE trial_publications ADD COLUMN is_full_match TEXT"))
+        db.execute(
+            text(
+                "UPDATE trial_publications SET is_full_match = CASE WHEN COALESCE(confidence, 0) >= 80 THEN 'yes' ELSE 'no' END"
+            )
+        )
+        db.commit()
+    publications = db.query(ClinicalTrialPublication).all()
+    full_publication_rows = [
+        p for p in publications if (p.is_full_match or "").strip().lower() == "yes"
+    ]
+    candidate_publication_rows = [
+        p for p in publications if (p.is_full_match or "").strip().lower() == "no"
+    ]
     total = len(trials)
 
     classes = Counter((t.therapeutic_class or "missing") for t in trials)
@@ -78,15 +124,30 @@ def run(limit: int, strict: bool):
     focus_pairs = Counter((t.focus_tags or "none") for t in trials)
     phase_dist = Counter((t.phase or "missing") for t in trials)
     result_dist = Counter((t.has_results or "missing").lower() for t in trials)
+    evidence_dist = Counter((t.evidence_strength or "missing").lower() for t in trials)
 
     unknown = [t for t in trials if (t.therapeutic_class or "") == "unknown"]
     unknown_with_tags = [t for t in unknown if (t.focus_tags or "").strip()]
 
-    mismatch_biomarker = [
-        t for t in trials
-        if (t.therapeutic_class == "biomarker_diagnostics")
-        and ("biomarker" not in (t.focus_tags or ""))
-    ]
+    biomarker_supporting_tags = {
+        "biomarker",
+        "early_detection",
+        "imaging_diagnostics",
+        "liquid_biopsy",
+        "genomics_precision",
+    }
+
+    mismatch_biomarker = []
+    for t in trials:
+        if t.therapeutic_class != "biomarker_diagnostics":
+            continue
+        tags = {
+            tag.strip().lower()
+            for tag in (t.focus_tags or "").split(",")
+            if tag.strip()
+        }
+        if not tags.intersection(biomarker_supporting_tags):
+            mismatch_biomarker.append(t)
     mismatch_nontherapeutic_interventional = [
         t for t in trials
         if (t.therapeutic_class == "observational_non_therapeutic")
@@ -161,9 +222,34 @@ def run(limit: int, strict: bool):
         )
     ]
 
+    pubmed_rows = [
+        t for t in trials if (t.pubmed_links or "").strip().lower() not in {"", "na"}
+    ]
+    publication_date_rows = [
+        t for t in trials if not _is_na(t.publication_date)
+    ]
+    primary_completion_rows = [
+        t for t in trials if not _is_na(t.primary_completion_date)
+    ]
+    unknown_evidence_rows = [
+        t for t in trials if (t.evidence_strength or "").strip().lower() in {"", "na", "unknown"}
+    ]
+    pubdate_coverage_of_pubmed = (
+        len(publication_date_rows) / len(pubmed_rows) if pubmed_rows else 1.0
+    )
+    primary_completion_coverage = (
+        len(primary_completion_rows) / total if total else 1.0
+    )
+    unknown_evidence_ratio = (
+        len(unknown_evidence_rows) / total if total else 0.0
+    )
+
     print_section("Overview")
     print(f"total_trials: {total}")
     print(f"details_rows: {len(details)}")
+    print(f"publication_rows: {len(publications)}")
+    print(f"publication_full_rows: {len(full_publication_rows)}")
+    print(f"publication_candidate_rows: {len(candidate_publication_rows)}")
     print(f"missing_details_rows: {len(missing_details)}")
     print(f"orphan_details_rows: {len(orphan_details)}")
     print(f"unknown_total: {len(unknown)}")
@@ -185,6 +271,10 @@ def run(limit: int, strict: bool):
     for key, count in result_dist.most_common():
         print(f"{key}: {count}")
 
+    print_section("Evidence Strength Distribution")
+    for key, count in evidence_dist.most_common():
+        print(f"{key}: {count}")
+
     print_section(f"Top Focus Tag Patterns (top {limit})")
     for tags, count in focus_pairs.most_common(limit):
         print(f"{tags}: {count}")
@@ -194,7 +284,7 @@ def run(limit: int, strict: bool):
         print(f"{t.nct_id} | {t.study_type} | {t.phase} | {t.title}")
 
     print_section("Consistency Checks")
-    print(f"biomarker_class_without_biomarker_tag: {len(mismatch_biomarker)}")
+    print(f"biomarker_class_without_supporting_tag: {len(mismatch_biomarker)}")
     print(
         "observational_non_therapeutic_with_interventional_study_type: "
         f"{len(mismatch_nontherapeutic_interventional)}"
@@ -210,6 +300,9 @@ def run(limit: int, strict: bool):
     print(f"unknown_pdac_match_reason: {len(unknown_match_reason)}")
     for field, bad in invalid_dates.items():
         print(f"invalid_{field}: {len(bad)}")
+    print(f"pubdate_coverage_of_pubmed: {pubdate_coverage_of_pubmed:.4f}")
+    print(f"primary_completion_coverage: {primary_completion_coverage:.4f}")
+    print(f"unknown_evidence_ratio: {unknown_evidence_ratio:.4f}")
 
     if len(missing_details) > 0:
         print_section(f"Missing Details Sample (top {limit})")
@@ -279,9 +372,36 @@ def run(limit: int, strict: bool):
             + len(invalid_source_links)
             + len(invalid_secondary_ids)
         )
-        if blocking_failures:
+        threshold_failures = 0
+        if pubdate_coverage_of_pubmed < min_pubdate_coverage_of_pubmed:
+            threshold_failures += 1
+            print_section("Coverage Threshold Failure")
+            print(
+                "pubdate_coverage_of_pubmed "
+                f"{pubdate_coverage_of_pubmed:.4f} < {min_pubdate_coverage_of_pubmed:.4f}"
+            )
+        if primary_completion_coverage < min_primary_completion_coverage:
+            threshold_failures += 1
+            print_section("Coverage Threshold Failure")
+            print(
+                "primary_completion_coverage "
+                f"{primary_completion_coverage:.4f} < {min_primary_completion_coverage:.4f}"
+            )
+        if unknown_evidence_ratio > max_unknown_evidence_ratio:
+            threshold_failures += 1
+            print_section("Coverage Threshold Failure")
+            print(
+                "unknown_evidence_ratio "
+                f"{unknown_evidence_ratio:.4f} > {max_unknown_evidence_ratio:.4f}"
+            )
+        total_failures = blocking_failures + threshold_failures
+        if total_failures:
             print_section("Strict Mode Result")
-            print(f"FAILED: blocking_failures={blocking_failures}")
+            print(
+                "FAILED: "
+                f"blocking_failures={blocking_failures}, "
+                f"threshold_failures={threshold_failures}"
+            )
             db.close()
             raise SystemExit(1)
         print_section("Strict Mode Result")
@@ -294,9 +414,33 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PDAC classification QA report")
     parser.add_argument("--limit", type=int, default=10, help="Sample size per section")
     parser.add_argument(
+        "--min-pubdate-coverage-of-pubmed",
+        type=float,
+        default=DEFAULT_MIN_PUBDATE_COVERAGE_OF_PUBMED,
+        help="Minimum acceptable publication_date coverage over rows with PubMed links.",
+    )
+    parser.add_argument(
+        "--min-primary-completion-coverage",
+        type=float,
+        default=DEFAULT_MIN_PRIMARY_COMPLETION_COVERAGE,
+        help="Minimum acceptable coverage of primary_completion_date over all rows.",
+    )
+    parser.add_argument(
+        "--max-unknown-evidence-ratio",
+        type=float,
+        default=DEFAULT_MAX_UNKNOWN_EVIDENCE_RATIO,
+        help="Maximum acceptable ratio of rows with unknown-like evidence_strength.",
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit with non-zero status if blocking QA failures are found.",
     )
     args = parser.parse_args()
-    run(limit=args.limit, strict=args.strict)
+    run(
+        limit=args.limit,
+        strict=args.strict,
+        min_pubdate_coverage_of_pubmed=args.min_pubdate_coverage_of_pubmed,
+        min_primary_completion_coverage=args.min_primary_completion_coverage,
+        max_unknown_evidence_ratio=args.max_unknown_evidence_ratio,
+    )

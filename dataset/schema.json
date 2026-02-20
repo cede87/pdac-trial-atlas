@@ -1,160 +1,202 @@
 {
   "name": "PDAC Trial Atlas dataset",
-  "version": "1.3",
-  "generated_at_utc": "2026-02-05 20:24:09Z",
+  "version": "1.4",
+  "generated_at_utc": "2026-02-20 13:03:16Z",
   "files": {
     "pdac-trials.csv": {
       "path": "pdac-trials.csv",
       "format": "csv",
       "encoding": "UTF-8",
       "header": true,
-      "delimiter": ","
+      "delimiter": ",",
+      "rows": 2486
     },
     "pdac-trials.parquet": {
       "path": "pdac-trials.parquet",
-      "format": "parquet"
+      "format": "parquet",
+      "rows": 2486
     }
   },
   "columns": [
     {
       "name": "nct_id",
       "type": "string",
-      "description": "Primary trial identifier. For ClinicalTrials.gov this is the NCT ID (e.g., NCT01234567). For CTIS-only trials, this is the EU CT number (e.g., 2022-500902-16-00)."
+      "description": "Primary trial identifier (NCT ID for ClinicalTrials.gov rows, EU CT number for CTIS-native rows)."
     },
     {
       "name": "source",
       "type": "string",
-      "description": "Source registry for this record: clinicaltrials.gov, ctis, or clinicaltrials.gov+ctis (merged/correlated)."
+      "description": "Source registry: clinicaltrials.gov, ctis, or clinicaltrials.gov+ctis."
     },
     {
       "name": "secondary_id",
       "type": "string",
-      "description": "Secondary identifiers when available (comma-separated). For example, CTIS trials may list an NCT ID here."
+      "description": "Secondary identifiers (comma-separated) when available."
     },
     {
       "name": "trial_link",
       "type": "string",
-      "description": "URL(s) to open the trial in its source registry. When merged, links may be separated by \" | \"."
+      "description": "Source trial URL(s), separated by ' | ' when merged."
     },
     {
       "name": "title",
       "type": "string",
-      "description": "Trial title as provided by the registry."
+      "description": "Trial title."
     },
     {
       "name": "study_type",
       "type": "string",
-      "description": "Study type as reported/normalized (e.g., INTERVENTIONAL, OBSERVATIONAL)."
+      "description": "Study type (e.g., INTERVENTIONAL, OBSERVATIONAL)."
     },
     {
       "name": "study_design",
       "type": "string",
-      "description": "Normalized study design classification derived from registry metadata."
+      "description": "Normalized study design label."
     },
     {
       "name": "phase",
       "type": "string",
-      "description": "Trial phase (registry-provided, normalized where possible)."
+      "description": "Trial phase string."
     },
     {
       "name": "status",
       "type": "string",
-      "description": "Recruitment/overall status (e.g., COMPLETED, RECRUITING)."
+      "description": "Overall/recruitment status."
     },
     {
       "name": "sponsor",
       "type": "string",
-      "description": "Lead sponsor organization name."
+      "description": "Lead sponsor."
     },
     {
       "name": "admission_date",
       "type": "string",
-      "description": "Registry posting/registration date in ISO-8601 (YYYY-MM-DD) when available."
+      "description": "First registration/posting date (YYYY-MM-DD) when available."
     },
     {
       "name": "last_update_date",
       "type": "string",
-      "description": "Last update date in ISO-8601 (YYYY-MM-DD) when available."
+      "description": "Last update date from source (YYYY-MM-DD) when available."
+    },
+    {
+      "name": "primary_completion_date",
+      "type": "string",
+      "description": "Primary completion date (YYYY-MM-DD) when available."
     },
     {
       "name": "has_results",
       "type": "string",
-      "description": "Whether results/publications were detected (yes/no)."
+      "description": "Best-effort result/publication flag (yes/no/NA)."
     },
     {
       "name": "results_last_update",
       "type": "string",
-      "description": "Best-effort date associated with results availability/publication update (YYYY-MM-DD) when available."
+      "description": "Source result/update date (YYYY-MM-DD) when available."
     },
     {
       "name": "pubmed_links",
       "type": "string",
-      "description": "PubMed URL(s) linked to the trial (best-effort), separated by \" | \"."
+      "description": "Pipe-separated PubMed links."
+    },
+    {
+      "name": "publication_date",
+      "type": "string",
+      "description": "Earliest linked publication date (YYYY-MM-DD) when available."
+    },
+    {
+      "name": "publication_scan_date",
+      "type": "string",
+      "description": "Last date publication linker scanned this trial (YYYY-MM-DD)."
+    },
+    {
+      "name": "publication_lag_days",
+      "type": "string",
+      "description": "Publication date minus primary completion date, non-negative."
+    },
+    {
+      "name": "evidence_strength",
+      "type": "string",
+      "description": "Heuristic evidence level: high/medium/low/very_low/unknown."
+    },
+    {
+      "name": "dead_end",
+      "type": "string",
+      "description": "yes when phase>=2, terminal status, no publication, completion older than 5 years."
+    },
+    {
+      "name": "publication_count",
+      "type": "string",
+      "description": "Count of full-match publication records linked to this trial."
+    },
+    {
+      "name": "publication_match_methods",
+      "type": "string",
+      "description": "Comma-separated methods for full publication matches."
     },
     {
       "name": "conditions",
       "type": "string",
-      "description": "Conditions/medical indications field from the registry."
+      "description": "Trial conditions text."
     },
     {
       "name": "interventions",
       "type": "string",
-      "description": "Interventions text extracted from the registry (may include type + name)."
+      "description": "Interventions text (type/name)."
     },
     {
       "name": "intervention_types",
       "type": "string",
-      "description": "Comma-separated intervention type list (e.g., DRUG, RADIATION)."
+      "description": "Comma-separated intervention type list."
     },
     {
       "name": "primary_outcomes",
       "type": "string",
-      "description": "Primary outcome measures/endpoints text."
+      "description": "Primary outcomes text."
     },
     {
       "name": "secondary_outcomes",
       "type": "string",
-      "description": "Secondary outcome measures/endpoints text."
+      "description": "Secondary outcomes text."
     },
     {
       "name": "inclusion_criteria",
       "type": "string",
-      "description": "Eligibility inclusion criteria text."
+      "description": "Inclusion criteria text."
     },
     {
       "name": "exclusion_criteria",
       "type": "string",
-      "description": "Eligibility exclusion criteria text."
+      "description": "Exclusion criteria text."
     },
     {
       "name": "locations",
       "type": "string",
-      "description": "Sites/locations text (best-effort) from the registry."
+      "description": "Locations/sites text."
     },
     {
       "name": "brief_summary",
       "type": "string",
-      "description": "Brief summary/abstract text."
+      "description": "Brief summary text."
     },
     {
       "name": "detailed_description",
       "type": "string",
-      "description": "Longer detailed description text."
+      "description": "Detailed description text."
     },
     {
       "name": "therapeutic_class",
       "type": "string",
-      "description": "Normalized therapeutic strategy class (heuristic classification)."
+      "description": "Normalized therapeutic class."
     },
     {
       "name": "focus_tags",
       "type": "string",
-      "description": "Comma-separated normalized tags describing trial focus (e.g., resectable_disease)."
+      "description": "Comma-separated focus tags."
     },
     {
       "name": "pdac_match_reason",
       "type": "string",
-      "description": "Why the trial was included as PDAC-relevant (keyword/heuristic match reason)."
+      "description": "Reason why trial matched PDAC cohort."
     }
   ]
 }
