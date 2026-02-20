@@ -51,3 +51,17 @@ class ClinicalTrialDetails(Base):
     locations = Column(Text)
     brief_summary = Column(Text)
     detailed_description = Column(Text)
+
+
+class ClinicalTrialPublication(Base):
+    __tablename__ = "trial_publications"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nct_id = Column(String, ForeignKey("clinical_trials.nct_id"), index=True)
+    pmid = Column(String, index=True)
+    doi = Column(String, index=True)
+    publication_date = Column(String)
+    publication_title = Column(Text)
+    journal = Column(Text)
+    match_method = Column(String)
+    confidence = Column(Integer)

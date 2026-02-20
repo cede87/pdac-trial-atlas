@@ -60,17 +60,26 @@ class SignalHeuristicsTests(unittest.TestCase):
                 primary_completion_date=old_date,
                 publication_date="NA",
             ),
+            ClinicalTrial(
+                nct_id="NCT_NEG_LAG",
+                phase="PHASE2",
+                status="COMPLETED",
+                pubmed_links="https://pubmed.ncbi.nlm.nih.gov/99999999/",
+                primary_completion_date="2024-01-01",
+                publication_date="2023-01-01",
+            ),
         ]
         session.add_all(rows)
         session.commit()
 
         updated = compute_signal_fields(session)
-        self.assertEqual(updated, 4)
+        self.assertEqual(updated, 5)
 
         high = session.get(ClinicalTrial, "NCT_HIGH")
         med = session.get(ClinicalTrial, "NCT_MED")
         low = session.get(ClinicalTrial, "NCT_LOW")
         vlow = session.get(ClinicalTrial, "NCT_VERY_LOW_DEAD_END")
+        neg = session.get(ClinicalTrial, "NCT_NEG_LAG")
 
         self.assertEqual(high.evidence_strength, "high")
         self.assertEqual(med.evidence_strength, "medium")
@@ -80,6 +89,7 @@ class SignalHeuristicsTests(unittest.TestCase):
 
         self.assertIsNotNone(high.publication_lag_days)
         self.assertGreater(high.publication_lag_days, 0)
+        self.assertIsNone(neg.publication_lag_days)
 
         session.close()
 

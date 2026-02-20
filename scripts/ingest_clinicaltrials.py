@@ -11,6 +11,7 @@ import os
 import re
 import sqlite3
 from datetime import datetime, date
+from difflib import SequenceMatcher
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -20,11 +21,20 @@ from typing import Optional
 from ingest.clinicaltrials import fetch_trials_pancreas, _fetch_pubmed_links_by_nct
 from ingest.ctis import fetch_trials_ctis_pdac
 from db.session import SessionLocal, init_db
-from db.models import ClinicalTrial, ClinicalTrialDetails
+from db.models import ClinicalTrial, ClinicalTrialDetails, ClinicalTrialPublication
 from sqlalchemy import text
 
 PUBMED_SUMMARY_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
 PUBMED_FETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+PUBMED_ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+
+PUBLICATION_METHOD_CONFIDENCE = {
+    "pubmed_link": 98,
+    "doi_reference": 95,
+    "nct_exact": 92,
+    "secondary_nct_exact": 90,
+    "title_fuzzy": 72,
+}
 
 
 def as_na(value):
@@ -36,6 +46,12 @@ def as_na(value):
     if isinstance(value, str) and not value.strip():
         return "NA"
     return value
+
+
+def _clean(value) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
 
 
 def is_na(value) -> bool:
@@ -58,6 +74,10 @@ def _merge_values(a: str, b: str, sep: str = " | ") -> str:
         seen.add(key)
         out.append(raw)
     return sep.join(out)
+
+
+def _join_non_empty(values, sep: str = " | ") -> str:
+    return sep.join([_clean(v) for v in values if _clean(v)])
 
 
 def _parse_date_key(value: str) -> str:
@@ -102,7 +122,93 @@ def _extract_pmids(pubmed_links: str) -> list[str]:
     return list(dict.fromkeys(pmids))
 
 
-def _fetch_pubmed_summary(pmids: list[str]) -> dict[str, str]:
+def _normalize_doi(raw: str) -> str:
+    text = _clean(raw)
+    if not text:
+        return ""
+    text = text.strip()
+    text = re.sub(r"^https?://(dx\.)?doi\.org/", "", text, flags=re.I)
+    text = re.sub(r"^doi:\s*", "", text, flags=re.I)
+    return text.strip()
+
+
+def _extract_dois(value: str) -> list[str]:
+    if is_na(value):
+        return []
+    dois = []
+    for token in str(value).split("|"):
+        token_clean = token.strip()
+        if not token_clean:
+            continue
+        if "doi.org/" in token_clean.lower() or token_clean.lower().startswith("doi:"):
+            doi = _normalize_doi(token_clean)
+            if doi:
+                dois.append(doi)
+            continue
+        for doi in re.findall(r"(10\.\d{4,9}/[-._;()/:A-Z0-9]+)", token_clean, flags=re.I):
+            norm = _normalize_doi(doi)
+            if norm:
+                dois.append(norm)
+    return list(dict.fromkeys(dois))
+
+
+def _parse_nct_tokens(value: str) -> list[str]:
+    if is_na(value):
+        return []
+    tokens = []
+    for token in re.findall(r"(NCT\d+)", str(value), flags=re.I):
+        tokens.append(token.upper())
+    return list(dict.fromkeys(tokens))
+
+
+def _extract_pubmed_pmids(payload: dict) -> list[str]:
+    if not isinstance(payload, dict):
+        return []
+    rows = payload.get("esearchresult", {}) or {}
+    idlist = rows.get("idlist", []) or []
+    return [str(item).strip() for item in idlist if str(item).strip().isdigit()]
+
+
+def _search_pubmed_pmids(term: str, max_links: int = 5) -> list[str]:
+    query = _clean(term)
+    if not query:
+        return []
+    try:
+        resp = requests.get(
+            PUBMED_ESEARCH_URL,
+            params={
+                "db": "pubmed",
+                "retmode": "json",
+                "retmax": max_links,
+                "term": query,
+            },
+            timeout=25,
+        )
+        resp.raise_for_status()
+        return _extract_pubmed_pmids(resp.json())
+    except Exception:
+        return []
+
+
+def _extract_summary_doi(summary_row: dict) -> str:
+    article_ids = summary_row.get("articleids", []) or []
+    for item in article_ids:
+        if not isinstance(item, dict):
+            continue
+        if _clean(item.get("idtype")).lower() == "doi":
+            doi = _normalize_doi(_clean(item.get("value")))
+            if doi:
+                return doi
+
+    elocation = _clean(summary_row.get("elocationid"))
+    if elocation:
+        doi = _normalize_doi(elocation)
+        if doi:
+            return doi
+    return ""
+
+
+def _fetch_pubmed_summary(pmids: list[str]) -> dict[str, dict[str, str]]:
     if not pmids:
         return {}
     try:
@@ -120,8 +226,12 @@ def _fetch_pubmed_summary(pmids: list[str]) -> dict[str, str]:
         out = {}
         for pmid in pmids:
             row = payload.get(pmid) or {}
-            pubdate = row.get("pubdate") or row.get("epubdate") or ""
-            out[pmid] = pubdate
+            out[pmid] = {
+                "publication_date_raw": _clean(row.get("pubdate") or row.get("epubdate")),
+                "publication_title": _clean(row.get("title")),
+                "journal": _clean(row.get("fulljournalname") or row.get("source")),
+                "doi": _extract_summary_doi(row),
+            }
         return out
     except Exception:
         return {}
@@ -245,13 +355,293 @@ def backfill_pubmed_publication_dates(session, max_lookups: int = 200) -> int:
         summaries = _fetch_pubmed_summary(pmids)
         dates = []
         for pmid in pmids:
-            pubdate = summaries.get(pmid, "")
-            parsed = _parse_pubmed_date(pubdate)
+            summary = summaries.get(pmid, {}) or {}
+            parsed = _parse_pubmed_date(summary.get("publication_date_raw"))
             if parsed:
                 dates.append(parsed)
         if not dates:
             continue
         trial.publication_date = min(dates).isoformat()
+        updated += 1
+
+    session.commit()
+    return updated
+
+
+def _assign_method(
+    method_by_pmid: dict[str, tuple[str, int]],
+    pmid: str,
+    method: str,
+    confidence: Optional[int] = None,
+) -> None:
+    conf = (
+        int(confidence)
+        if confidence is not None
+        else int(PUBLICATION_METHOD_CONFIDENCE.get(method, 70))
+    )
+    current = method_by_pmid.get(pmid)
+    if current is None or conf > current[1]:
+        method_by_pmid[pmid] = (method, conf)
+
+
+def _build_title_query(title: str, sponsor: str, admission_date: str) -> str:
+    title_text = _clean(title)
+    if not title_text:
+        return ""
+    query = f"({title_text}[Title]) AND (pancreatic OR pancreas OR PDAC)"
+    year = _clean(admission_date)[:4] if _clean(admission_date)[:4].isdigit() else ""
+    if year:
+        query += f" AND ({year}[Date - Publication] : 3000[Date - Publication])"
+    sponsor_text = _clean(sponsor)
+    if sponsor_text and sponsor_text.lower() not in {"na", "unknown"}:
+        # Sponsor affinity is a soft refinement that still keeps broad recall.
+        query += f" AND ({sponsor_text}[Affiliation] OR {sponsor_text}[Corporate Author])"
+    return query
+
+
+def ensure_publications_table(session) -> None:
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS trial_publications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nct_id TEXT NOT NULL,
+                pmid TEXT,
+                doi TEXT,
+                publication_date TEXT,
+                publication_title TEXT,
+                journal TEXT,
+                match_method TEXT,
+                confidence INTEGER,
+                FOREIGN KEY(nct_id) REFERENCES clinical_trials(nct_id)
+            )
+            """
+        )
+    )
+    session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS idx_trial_publications_nct_id ON trial_publications(nct_id)"
+        )
+    )
+    session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS idx_trial_publications_pmid ON trial_publications(pmid)"
+        )
+    )
+    session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS idx_trial_publications_doi ON trial_publications(doi)"
+        )
+    )
+    session.commit()
+
+
+def rebuild_trial_publications(
+    session,
+    *,
+    max_nct_lookups: int = 400,
+    max_title_lookups: int = 300,
+    max_doi_lookups: int = 200,
+    max_links_per_trial: int = 5,
+) -> dict[str, int]:
+    ensure_publications_table(session)
+    session.query(ClinicalTrialPublication).delete()
+    session.commit()
+
+    nct_lookup_cache: dict[str, list[str]] = {}
+    title_lookup_cache: dict[str, list[str]] = {}
+    doi_lookup_cache: dict[str, list[str]] = {}
+    summary_cache: dict[str, dict[str, str]] = {}
+
+    nct_lookups_used = 0
+    title_lookups_used = 0
+    doi_lookups_used = 0
+    publication_rows = 0
+    trials_with_publications = 0
+
+    trials = session.query(ClinicalTrial).order_by(ClinicalTrial.nct_id.asc()).all()
+    for trial in trials:
+        method_by_pmid: dict[str, tuple[str, int]] = {}
+        raw_dois = set(_extract_dois(trial.pubmed_links))
+
+        # 1) Existing row links are highest-confidence seeds.
+        for pmid in _extract_pmids(trial.pubmed_links):
+            _assign_method(method_by_pmid, pmid, "pubmed_link")
+
+        # 2) Exact NCT lookups (primary + secondary) to expand publication coverage.
+        nct_tokens = []
+        if _clean(trial.nct_id).upper().startswith("NCT"):
+            nct_tokens.append(_clean(trial.nct_id).upper())
+        nct_tokens.extend(_parse_nct_tokens(trial.secondary_id))
+        nct_tokens = list(dict.fromkeys(nct_tokens))
+        for idx, nct_token in enumerate(nct_tokens):
+            if len(method_by_pmid) >= max_links_per_trial:
+                break
+            cached = nct_lookup_cache.get(nct_token)
+            if cached is None:
+                if nct_lookups_used >= max_nct_lookups:
+                    break
+                cached = _search_pubmed_pmids(f"{nct_token}[si]", max_links=max_links_per_trial)
+                nct_lookup_cache[nct_token] = cached
+                nct_lookups_used += 1
+            for pmid in cached:
+                method = "nct_exact" if idx == 0 else "secondary_nct_exact"
+                _assign_method(method_by_pmid, pmid, method)
+
+        # 3) DOI resolution when available.
+        for doi in list(raw_dois):
+            if len(method_by_pmid) >= max_links_per_trial:
+                break
+            cached = doi_lookup_cache.get(doi)
+            if cached is None:
+                if doi_lookups_used >= max_doi_lookups:
+                    continue
+                cached = _search_pubmed_pmids(f"{doi}[AID]", max_links=max_links_per_trial)
+                doi_lookup_cache[doi] = cached
+                doi_lookups_used += 1
+            for pmid in cached:
+                _assign_method(method_by_pmid, pmid, "doi_reference")
+
+        # 4) Title fallback for sparse rows.
+        if not method_by_pmid and max_title_lookups > 0:
+            title_query = _build_title_query(trial.title, trial.sponsor, trial.admission_date)
+            if title_query:
+                cached = title_lookup_cache.get(title_query)
+                if cached is None and title_lookups_used < max_title_lookups:
+                    cached = _search_pubmed_pmids(title_query, max_links=max_links_per_trial * 2)
+                    title_lookup_cache[title_query] = cached
+                    title_lookups_used += 1
+                elif cached is None:
+                    cached = []
+
+                if cached:
+                    summary_missing = [pmid for pmid in cached if pmid not in summary_cache]
+                    if summary_missing:
+                        summary_cache.update(_fetch_pubmed_summary(summary_missing))
+
+                    trial_title = _clean(trial.title).lower()
+                    for pmid in cached:
+                        summary = summary_cache.get(pmid, {}) or {}
+                        candidate_title = _clean(summary.get("publication_title")).lower()
+                        if not trial_title or not candidate_title:
+                            similarity = 0.0
+                        else:
+                            similarity = SequenceMatcher(None, trial_title, candidate_title).ratio()
+                        if similarity < 0.38:
+                            continue
+                        confidence = int(60 + similarity * 30)
+                        _assign_method(
+                            method_by_pmid,
+                            pmid,
+                            "title_fuzzy",
+                            confidence=confidence,
+                        )
+
+        # Metadata fetch for publication rows.
+        pmids = list(method_by_pmid.keys())[:max_links_per_trial]
+        summary_missing = [pmid for pmid in pmids if pmid not in summary_cache]
+        if summary_missing:
+            summary_cache.update(_fetch_pubmed_summary(summary_missing))
+
+        inserted_keys = set()
+        for pmid in pmids:
+            summary = summary_cache.get(pmid, {}) or {}
+            method, confidence = method_by_pmid.get(pmid, ("title_fuzzy", 70))
+            publication_date = ""
+            parsed = _parse_pubmed_date(summary.get("publication_date_raw"))
+            if parsed:
+                publication_date = parsed.isoformat()
+            doi = _normalize_doi(summary.get("doi"))
+            if doi:
+                raw_dois.add(doi)
+
+            key = (pmid, doi)
+            if key in inserted_keys:
+                continue
+            inserted_keys.add(key)
+
+            session.add(
+                ClinicalTrialPublication(
+                    nct_id=trial.nct_id,
+                    pmid=pmid,
+                    doi=doi or None,
+                    publication_date=publication_date or "NA",
+                    publication_title=_clean(summary.get("publication_title")) or "NA",
+                    journal=_clean(summary.get("journal")) or "NA",
+                    match_method=method,
+                    confidence=confidence,
+                )
+            )
+            publication_rows += 1
+
+        # Keep DOI-only records when no PMID mapping exists.
+        pmid_set = set(pmids)
+        for doi in sorted(raw_dois):
+            if not doi:
+                continue
+            if any(doi == _normalize_doi(summary_cache.get(pmid, {}).get("doi")) for pmid in pmid_set):
+                continue
+            session.add(
+                ClinicalTrialPublication(
+                    nct_id=trial.nct_id,
+                    pmid=None,
+                    doi=doi,
+                    publication_date="NA",
+                    publication_title="NA",
+                    journal="NA",
+                    match_method="doi_reference",
+                    confidence=PUBLICATION_METHOD_CONFIDENCE["doi_reference"],
+                )
+            )
+            publication_rows += 1
+
+        if pmids or raw_dois:
+            trials_with_publications += 1
+
+    session.commit()
+    return {
+        "publication_rows": publication_rows,
+        "trials_with_publications": trials_with_publications,
+        "nct_lookups_used": nct_lookups_used,
+        "title_lookups_used": title_lookups_used,
+        "doi_lookups_used": doi_lookups_used,
+    }
+
+
+def refresh_trial_publication_summary(session) -> int:
+    updated = 0
+    trials = session.query(ClinicalTrial).order_by(ClinicalTrial.nct_id.asc()).all()
+    for trial in trials:
+        pubs = (
+            session.query(ClinicalTrialPublication)
+            .filter(ClinicalTrialPublication.nct_id == trial.nct_id)
+            .order_by(ClinicalTrialPublication.confidence.desc(), ClinicalTrialPublication.publication_date.asc())
+            .all()
+        )
+        if not pubs:
+            continue
+
+        if (trial.has_results or "").strip().lower() != "yes":
+            trial.has_results = "yes"
+
+        pmids = []
+        for pub in pubs:
+            pmid = _clean(pub.pmid)
+            if pmid and pmid.isdigit():
+                pmids.append(pmid)
+        pubmed_links = _join_non_empty(
+            [f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" for pmid in list(dict.fromkeys(pmids))]
+        )
+        if pubmed_links:
+            trial.pubmed_links = pubmed_links
+
+        dates = []
+        for pub in pubs:
+            parsed = _parse_date(pub.publication_date)
+            if parsed:
+                dates.append(parsed)
+        if dates:
+            trial.publication_date = min(dates).isoformat()
         updated += 1
 
     session.commit()
@@ -279,7 +669,15 @@ def improve_therapeutic_class_ensemble(session, max_lookups: int = 200) -> int:
     updated = 0
     for trial in candidates:
         mesh_terms = []
-        pmids = _extract_pmids(trial.pubmed_links)
+        pmids = [
+            _clean(pub.pmid)
+            for pub in session.query(ClinicalTrialPublication)
+            .filter(ClinicalTrialPublication.nct_id == trial.nct_id)
+            .all()
+            if _clean(pub.pmid).isdigit()
+        ]
+        if not pmids:
+            pmids = _extract_pmids(trial.pubmed_links)
         if pmids:
             mesh_terms = _fetch_pubmed_mesh_terms(pmids[:5])
         new_class = _score_therapeutic_class(
@@ -653,6 +1051,7 @@ def run():
     session = SessionLocal()
     ensure_columns(session)
     ensure_details_table_and_backfill(session)
+    ensure_publications_table(session)
 
     print("Fetching PDAC-related trials from ClinicalTrials.gov ...")
     ctgov_studies = fetch_trials_pancreas()
@@ -754,6 +1153,18 @@ def run():
     merged_ctis = merge_ctis_overlaps(session)
     pubmed_date_limit = int(os.getenv("PUBMED_DATE_LOOKUP_LIMIT", "200"))
     mesh_lookup_limit = int(os.getenv("PUBMED_MESH_LOOKUP_LIMIT", "200"))
+    pubmed_nct_lookup_limit = int(os.getenv("PUBMED_NCT_LOOKUP_LIMIT", "400"))
+    pubmed_title_lookup_limit = int(os.getenv("PUBMED_TITLE_LOOKUP_LIMIT", "300"))
+    pubmed_doi_lookup_limit = int(os.getenv("PUBMED_DOI_LOOKUP_LIMIT", "200"))
+    pubmed_per_trial_limit = int(os.getenv("PUBMED_PER_TRIAL_LINK_LIMIT", "5"))
+    publication_stats = rebuild_trial_publications(
+        session,
+        max_nct_lookups=pubmed_nct_lookup_limit,
+        max_title_lookups=pubmed_title_lookup_limit,
+        max_doi_lookups=pubmed_doi_lookup_limit,
+        max_links_per_trial=pubmed_per_trial_limit,
+    )
+    publication_rows_refreshed = refresh_trial_publication_summary(session)
     pubmed_dates = backfill_pubmed_publication_dates(session, max_lookups=pubmed_date_limit)
     mesh_updated = improve_therapeutic_class_ensemble(session, max_lookups=mesh_lookup_limit)
     signal_updated = compute_signal_fields(session)
@@ -767,6 +1178,15 @@ def run():
     print(f"CTIS↔NCT overlaps merged: {merged_ctis}")
     print(f"PubMed links enriched (this run): {enriched}")
     print(f"has_results corrected from PubMed links: {results_fixed}")
+    print(
+        "Publication index: "
+        f"rows={publication_stats['publication_rows']}, "
+        f"trials={publication_stats['trials_with_publications']}, "
+        f"nct_lookups={publication_stats['nct_lookups_used']}, "
+        f"title_lookups={publication_stats['title_lookups_used']}, "
+        f"doi_lookups={publication_stats['doi_lookups_used']}"
+    )
+    print(f"Publication summary refreshed: {publication_rows_refreshed}")
     print(f"PubMed publication dates added: {pubmed_dates}")
     print(f"Therapeutic class updated via ensemble: {mesh_updated}")
     print(f"Signal fields updated: {signal_updated}")

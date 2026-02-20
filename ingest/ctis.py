@@ -649,6 +649,44 @@ def _normalize_results_flag(overview: Dict[str, Any], details: Dict[str, Any]) -
     return "no"
 
 
+def _extract_primary_completion_date(overview: Dict[str, Any], details: Dict[str, Any]) -> str:
+    candidates = [
+        _nested(details, ["endDateEU"], ""),
+        _nested(
+            details,
+            ["authorizedApplication", "authorizedPartI", "trialDetails", "trialInformation", "estimatedEndDate"],
+            "",
+        ),
+        _nested(
+            details,
+            ["authorizedApplication", "authorizedPartI", "trialDetails", "trialInformation", "plannedEndDate"],
+            "",
+        ),
+        _nested(
+            details,
+            ["authorizedApplication", "authorizedPartI", "trialDetails", "trialInformation", "endDate"],
+            "",
+        ),
+        _nested(
+            details,
+            ["authorizedApplication", "authorizedPartI", "trialDetails", "trialInformation", "completionDate"],
+            "",
+        ),
+        _nested(
+            details,
+            ["authorizedApplication", "authorizedPartI", "trialDetails", "estimatedEndDate"],
+            "",
+        ),
+        _clean(overview.get("completionDate")),
+        _clean(overview.get("estimatedCompletionDate")),
+    ]
+    for raw in candidates:
+        normalized = normalize_ctis_date(_clean(raw))
+        if normalized:
+            return normalized
+    return ""
+
+
 def _build_classification_text(
     overview: Dict[str, Any],
     title: str,
@@ -834,7 +872,7 @@ def fetch_trials_ctis_pdac(
             or _clean(overview.get("lastPublicationUpdate"))
             or _clean(_nested(details, ["publishDate"], ""))
         )
-        primary_completion_date = ""
+        primary_completion_date = _extract_primary_completion_date(overview, details)
         results_last_update = normalize_ctis_date(_clean(overview.get("lastPublicationUpdate")))
 
         normalized.append(

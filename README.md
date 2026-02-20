@@ -27,9 +27,18 @@ Ingestion now merges:
 - ClinicalTrials.gov PDAC trials
 - CTIS (EU Clinical Trials Information System) PDAC trials
 
-During ingestion, PubMed links are enriched by NCT ID lookup (up to 200 trials per run by default).
-To process more in one run:
-`PUBMED_LOOKUP_LIMIT=1000 PYTHONPATH=. python3 scripts/ingest_clinicaltrials.py`
+During ingestion, PubMed links are enriched in two stages:
+- direct NCT enrichment (`pubmed_links`)
+- normalized publication index (`trial_publications`) with method + confidence
+
+Legacy PubMed enrichment control:
+- `PUBMED_LOOKUP_LIMIT=1000` increase direct NCT PubMed enrichment scope
+
+Publication-index controls (v1.4):
+- `PUBMED_NCT_LOOKUP_LIMIT=400` max NCT exact lookups into PubMed
+- `PUBMED_TITLE_LOOKUP_LIMIT=300` max title-fallback lookups
+- `PUBMED_DOI_LOOKUP_LIMIT=200` max DOI lookups
+- `PUBMED_PER_TRIAL_LINK_LIMIT=5` max stored publication links per trial
 
 Signal-enrichment controls (optional):
 - `PUBMED_DATE_LOOKUP_LIMIT=500` PubMed publication-date backfill lookups per run
@@ -122,9 +131,11 @@ SELECT COUNT(*) AS dead_end_mismatch
 FROM clinical_trials
 WHERE LOWER(COALESCE(dead_end, '')) = 'yes'
   AND NOT (
-    (LOWER(COALESCE(phase, '')) LIKE '%phase ii%' OR LOWER(COALESCE(phase, '')) LIKE '%phase 2%'
-      OR LOWER(COALESCE(phase, '')) LIKE '%phase iii%' OR LOWER(COALESCE(phase, '')) LIKE '%phase 3%'
-      OR LOWER(COALESCE(phase, '')) LIKE '%phase iv%' OR LOWER(COALESCE(phase, '')) LIKE '%phase 4%')
+    (LOWER(COALESCE(phase, '')) LIKE '%phase ii%' OR LOWER(COALESCE(phase, '')) LIKE '%phase2%'
+      OR LOWER(COALESCE(phase, '')) LIKE '%phase 2%' OR LOWER(COALESCE(phase, '')) LIKE '%phase iii%'
+      OR LOWER(COALESCE(phase, '')) LIKE '%phase3%' OR LOWER(COALESCE(phase, '')) LIKE '%phase 3%'
+      OR LOWER(COALESCE(phase, '')) LIKE '%phase iv%' OR LOWER(COALESCE(phase, '')) LIKE '%phase4%'
+      OR LOWER(COALESCE(phase, '')) LIKE '%phase 4%')
     AND (LOWER(COALESCE(status, '')) LIKE '%completed%' OR LOWER(COALESCE(status, '')) LIKE '%terminated%')
     AND (COALESCE(TRIM(pubmed_links), '') = '' OR UPPER(TRIM(pubmed_links)) = 'NA')
     AND DATE(primary_completion_date) <= DATE('now', '-5 years')
@@ -133,7 +144,18 @@ WHERE LOWER(COALESCE(dead_end, '')) = 'yes'
 
 Expected result: `0`.
 
-6. Validate lag storage policy:
+6. Validate publication-index integrity:
+
+```sql
+SELECT COUNT(*) AS publication_orphans
+FROM trial_publications p
+LEFT JOIN clinical_trials c ON c.nct_id = p.nct_id
+WHERE c.nct_id IS NULL;
+```
+
+Expected result: `0`.
+
+7. Validate lag storage policy:
 
 ```sql
 -- Negative lag is treated as anomaly and not stored in publication_lag_days.
@@ -178,6 +200,7 @@ Publication lag rule:
 
 - `clinical_trials` keeps compact fields for fast filtering/sorting (id, status, dates, class, tags, etc.).
 - `clinical_trial_details` stores long-text fields (conditions, interventions, outcomes, eligibility, locations, summaries/descriptions).
+- `trial_publications` stores normalized publication rows (`pmid`, `doi`, `publication_date`, `match_method`, `confidence`) and is used to compute publication coverage analytics.
 - Both tables are linked 1:1 via `nct_id`.
 - In the dashboard Quick filters bar, `Origin` lets you filter by source (`clinicaltrials.gov`, `ctis`, or merged `clinicaltrials.gov+ctis`).
 - In Explorer, `Trial ID` is the primary row ID and `NCT ID` is shown explicitly as a separate column.
@@ -191,7 +214,7 @@ Below is what each field stores, expected values/patterns, and one quick example
 | Column | What it is | Possible values / format |
 |---|---|---|
 | `nct_id` | Primary trial key in this dataset | `NCT...` for ClinicalTrials.gov or `YYYY-NNNNNN-NN-NN` for CTIS |
-| `source` | Source registry for the row | `clinicaltrials.gov`, `ctis` |
+| `source` | Source registry for the row | `clinicaltrials.gov`, `ctis`, `clinicaltrials.gov+ctis` |
 | `secondary_id` | Optional alternate registry ID(s) | May include `NCT...` and/or EU CTIS codes |
 | `trial_link` | Direct URL to the source trial page | ClinicalTrials.gov or CTIS URL |
 | `title` | Brief trial title | Free text |
@@ -208,6 +231,8 @@ Below is what each field stores, expected values/patterns, and one quick example
 | `pubmed_links` | PubMed paper links found by NCT ID lookup | Pipe-separated PubMed URLs or `NA` |
 | `publication_date` | Earliest publication date among linked PubMed papers | `YYYY-MM-DD` or `NA` |
 | `publication_lag_days` | Days between publication and primary completion | Non-negative integer or `NA` |
+| `publication_count` | Number of normalized publication rows linked to the trial (`trial_publications`) | Integer (`0+`) |
+| `publication_match_methods` | Match strategies used to link publications | Comma-separated: `pubmed_link`, `nct_exact`, `secondary_nct_exact`, `doi_reference`, `title_fuzzy`, `NA` |
 | `evidence_strength` | Heuristic evidence confidence level | `high`, `medium`, `low`, `very_low`, `unknown`, `NA` |
 | `dead_end` | Trial likely ended without publication signal under rule set | `yes`, `no`, `NA` |
 | `conditions` | Conditions list | Pipe-separated text or `NA` |
@@ -244,6 +269,8 @@ has_results: yes
 results_last_update: 2023-06-05
 publication_date: 2023-01-15
 publication_lag_days: 45
+publication_count: 2
+publication_match_methods: pubmed_link,nct_exact
 evidence_strength: medium
 dead_end: no
 conditions: Exocrine Pancreatic Insufficiency | Pancreatic Cancer

@@ -5,7 +5,7 @@ validation, and downstream analysis.
 
 import csv
 from db.session import SessionLocal
-from db.models import ClinicalTrial, ClinicalTrialDetails
+from db.models import ClinicalTrial, ClinicalTrialDetails, ClinicalTrialPublication
 
 
 OUTPUT_FILE = "pdac_trials_export.csv"
@@ -43,6 +43,8 @@ def run():
             "publication_lag_days",
             "evidence_strength",
             "dead_end",
+            "publication_count",
+            "publication_match_methods",
             "conditions",
             "interventions",
             "intervention_types",
@@ -63,6 +65,21 @@ def run():
         # --------------------------------------------------
         for t in trials:
             d = db.get(ClinicalTrialDetails, t.nct_id)
+            pubs = (
+                db.query(ClinicalTrialPublication)
+                .filter(ClinicalTrialPublication.nct_id == t.nct_id)
+                .all()
+            )
+            publication_count = len(pubs)
+            publication_match_methods = ",".join(
+                sorted(
+                    {
+                        (p.match_method or "").strip()
+                        for p in pubs
+                        if (p.match_method or "").strip()
+                    }
+                )
+            ) or "NA"
             writer.writerow([
                 t.nct_id,
                 t.source,
@@ -84,6 +101,8 @@ def run():
                 t.publication_lag_days,
                 t.evidence_strength,
                 t.dead_end,
+                publication_count,
+                publication_match_methods,
                 (d.conditions if d else "NA"),
                 (d.interventions if d else "NA"),
                 t.intervention_types,

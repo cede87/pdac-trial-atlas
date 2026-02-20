@@ -143,6 +143,8 @@ def build_display_df(filtered: pd.DataFrame) -> pd.DataFrame:
                 "pubmed_links",
                 "publication_date",
                 "publication_lag_days",
+                "publication_count",
+                "publication_match_methods",
                 "evidence_strength",
                 "dead_end",
                 "conditions",
@@ -181,6 +183,8 @@ def build_display_df(filtered: pd.DataFrame) -> pd.DataFrame:
                 "pubmed_links": "Paper Link",
                 "publication_date": "Publication Date",
                 "publication_lag_days": "Publication Lag (days)",
+                "publication_count": "Publication Count",
+                "publication_match_methods": "Publication Match Methods",
                 "evidence_strength": "Evidence Strength",
                 "dead_end": "Dead End",
                 "conditions": "Conditions",
@@ -230,6 +234,8 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                     c.pubmed_links,
                     c.publication_date,
                     c.publication_lag_days,
+                    COALESCE(pub.publication_count, 0) AS publication_count,
+                    COALESCE(pub.match_methods, 'NA') AS publication_match_methods,
                     c.evidence_strength,
                     c.dead_end,
                     c.intervention_types,
@@ -247,12 +253,31 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                     d.detailed_description
                 FROM clinical_trials c
                 LEFT JOIN clinical_trial_details d ON d.nct_id = c.nct_id
+                LEFT JOIN (
+                    SELECT
+                        nct_id,
+                        COUNT(*) AS publication_count,
+                        GROUP_CONCAT(DISTINCT match_method) AS match_methods
+                    FROM trial_publications
+                    GROUP BY nct_id
+                ) pub ON pub.nct_id = c.nct_id
                 ORDER BY c.nct_id
                 """,
                 conn,
             )
         except Exception as exc:
-            if "pubmed_links" not in str(exc).lower():
+            if not any(
+                token in str(exc).lower()
+                for token in (
+                    "pubmed_links",
+                    "trial_publications",
+                    "primary_completion_date",
+                    "publication_date",
+                    "publication_lag_days",
+                    "evidence_strength",
+                    "dead_end",
+                )
+            ):
                 raise
             df = pd.read_sql_query(
                 """
@@ -269,13 +294,8 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                     c.sponsor,
                     c.admission_date,
                     c.last_update_date,
-                    c.primary_completion_date,
                     c.has_results,
                     c.results_last_update,
-                    c.publication_date,
-                    c.publication_lag_days,
-                    c.evidence_strength,
-                    c.dead_end,
                     c.intervention_types,
                     c.therapeutic_class,
                     c.focus_tags,
@@ -296,6 +316,13 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                 conn,
             )
             df["pubmed_links"] = ""
+            df["primary_completion_date"] = ""
+            df["publication_date"] = ""
+            df["publication_lag_days"] = ""
+            df["publication_count"] = 0
+            df["publication_match_methods"] = "NA"
+            df["evidence_strength"] = ""
+            df["dead_end"] = ""
     finally:
         conn.close()
 
@@ -318,6 +345,8 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
         "pubmed_links",
         "publication_date",
         "publication_lag_days",
+        "publication_count",
+        "publication_match_methods",
         "evidence_strength",
         "dead_end",
         "conditions",
@@ -370,6 +399,11 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
     ] = df["nct_id"].apply(
         lambda value: f"https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en&EUCT={value}"
     )
+    df["publication_count"] = pd.to_numeric(df["publication_count"], errors="coerce").fillna(0).astype(int)
+    df["publication_match_methods"] = (
+        df["publication_match_methods"].fillna("").astype(str).str.strip()
+    )
+    df.loc[df["publication_match_methods"] == "", "publication_match_methods"] = "NA"
 
     df = df[expected_cols]
     return df.fillna("")
@@ -416,6 +450,23 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     results_options = sorted([x for x in df["has_results"].unique() if x])
     selected_results = st.sidebar.multiselect("Results", results_options)
 
+    publication_presence = st.sidebar.multiselect(
+        "Publication index",
+        ["yes", "no"],
+    )
+
+    publication_method_options = sorted(
+        {
+            item
+            for raw in df["publication_match_methods"].tolist()
+            for item in split_csv_values(raw)
+        }
+    )
+    selected_publication_methods = st.sidebar.multiselect(
+        "Publication match method",
+        publication_method_options,
+    )
+
     evidence_options = sorted([x for x in df["evidence_strength"].unique() if x])
     selected_evidence = st.sidebar.multiselect("Evidence strength", evidence_options)
 
@@ -457,6 +508,20 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
         ]
     if selected_results:
         out = out[out["has_results"].isin(selected_results)]
+    if publication_presence:
+        wants_yes = "yes" in publication_presence
+        wants_no = "no" in publication_presence
+        if wants_yes and not wants_no:
+            out = out[pd.to_numeric(out["publication_count"], errors="coerce").fillna(0) > 0]
+        elif wants_no and not wants_yes:
+            out = out[pd.to_numeric(out["publication_count"], errors="coerce").fillna(0) <= 0]
+    if selected_publication_methods:
+        selected_set = set(selected_publication_methods)
+        out = out[
+            out["publication_match_methods"].apply(
+                lambda raw: bool(selected_set.intersection(split_csv_values(raw)))
+            )
+        ]
     if selected_evidence:
         out = out[out["evidence_strength"].isin(selected_evidence)]
     if selected_dead_end:
@@ -562,6 +627,7 @@ def render_explorer(filtered: pd.DataFrame):
         "Therapeutic Class",
         "Evidence Strength",
         "Dead End",
+        "Publication Count",
         "Paper Link",
         "Intervention Types",
         "Admission Date",
@@ -656,6 +722,8 @@ def render_explorer(filtered: pd.DataFrame):
                 "Paper Link": "First linked PubMed paper found by NCT.",
                 "Publication Date": "Earliest linked PubMed publication date (when available).",
                 "Publication Lag (days)": "Publication date minus primary completion date.",
+                "Publication Count": "Number of normalized publication records linked to this trial.",
+                "Publication Match Methods": "Linking methods used for publication matching.",
                 "Evidence Strength": "Heuristic evidence strength based on phase, results, and timing.",
                 "Dead End": "Phase >=2, completed/terminated, no publication after 5 years.",
                 "Conditions": "Reported study conditions.",
@@ -720,6 +788,10 @@ def render_explorer(filtered: pd.DataFrame):
                 gb.configure_column("Publication Date", minWidth=145, maxWidth=190)
             if "Publication Lag (days)" in display_df.columns:
                 gb.configure_column("Publication Lag (days)", minWidth=155, maxWidth=210)
+            if "Publication Count" in display_df.columns:
+                gb.configure_column("Publication Count", minWidth=130, maxWidth=170)
+            if "Publication Match Methods" in display_df.columns:
+                gb.configure_column("Publication Match Methods", minWidth=175, maxWidth=260)
             if "Evidence Strength" in display_df.columns:
                 gb.configure_column("Evidence Strength", minWidth=145, maxWidth=185)
             if "Dead End" in display_df.columns:
@@ -1214,6 +1286,27 @@ def render_analytics(filtered: pd.DataFrame):
         .isin({"", "na", "unknown"})
         .sum()
     )
+    publication_index_count = int(
+        (pd.to_numeric(filtered["publication_count"], errors="coerce").fillna(0) > 0).sum()
+    )
+    publication_index_coverage = (
+        (publication_index_count / len(filtered) * 100.0) if len(filtered) else 0.0
+    )
+    publication_date_coverage = (
+        (
+            quality_df["publication_date_dt"].notna()
+            & (pd.to_numeric(filtered["publication_count"], errors="coerce").fillna(0) > 0)
+        ).sum()
+        / publication_index_count
+        * 100.0
+        if publication_index_count
+        else 0.0
+    )
+    primary_completion_coverage = (
+        quality_df["primary_completion_date_dt"].notna().sum() / len(filtered) * 100.0
+        if len(filtered)
+        else 0.0
+    )
 
     q1, q2, q3, q4 = st.columns(4)
     with q1:
@@ -1238,6 +1331,26 @@ def render_analytics(filtered: pd.DataFrame):
         st.markdown(
             f'<div class="metric-card"><div class="metric-label">Unknown Evidence Strength</div>'
             f'<div class="metric-value">{unknown_evidence:,}</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Publication Index Coverage</div>'
+            f'<div class="metric-value">{publication_index_coverage:.1f}%</div></div>',
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Publication Date Coverage (Indexed)</div>'
+            f'<div class="metric-value">{publication_date_coverage:.1f}%</div></div>',
+            unsafe_allow_html=True,
+        )
+    with c3:
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">Primary Completion Coverage</div>'
+            f'<div class="metric-value">{primary_completion_coverage:.1f}%</div></div>',
             unsafe_allow_html=True,
         )
 
@@ -1304,9 +1417,8 @@ def render_analytics(filtered: pd.DataFrame):
     phase1 = phase_raw.str.contains(r"phase\s*i\b|phase\s*1", regex=True)
     phase2 = phase_raw.str.contains(r"phase\s*ii\b|phase\s*2", regex=True)
     phase3 = phase_raw.str.contains(r"phase\s*iii\b|phase\s*3", regex=True)
-    published = (
-        filtered["pubmed_links"].fillna("").astype(str).str.strip().str.upper() != "NA"
-    )
+    pub_links = filtered["pubmed_links"].fillna("").astype(str).str.strip()
+    published = (pub_links != "") & (pub_links.str.upper() != "NA")
 
     phase1_count = int(phase1.sum())
     phase2_count = int(phase2.sum())
@@ -1358,6 +1470,37 @@ def render_analytics(filtered: pd.DataFrame):
         )
     )
     st.altair_chart(themed_chart(evidence_chart), width="stretch")
+
+    publication_method_series = (
+        filtered["publication_match_methods"]
+        .apply(split_csv_values)
+        .explode()
+        .dropna()
+    )
+    if publication_method_series.empty:
+        publication_method_df = pd.DataFrame(
+            {"publication_match_method": ["NA"], "count": [0]}
+        )
+    else:
+        publication_method_df = (
+            publication_method_series.value_counts()
+            .rename_axis("publication_match_method")
+            .reset_index(name="count")
+        )
+    publication_method_chart = (
+        alt.Chart(publication_method_df)
+        .mark_bar()
+        .encode(
+            x=alt.X("publication_match_method:N", sort="-y", title="Publication match method"),
+            y=alt.Y("count:Q", title="Count"),
+            tooltip=["publication_match_method:N", "count:Q"],
+        )
+        .properties(
+            title="Publication Match Method Distribution",
+            height=320,
+        )
+    )
+    st.altair_chart(themed_chart(publication_method_chart), width="stretch")
 
 
 def main():
