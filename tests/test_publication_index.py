@@ -120,6 +120,54 @@ class PublicationIndexTests(unittest.TestCase):
         self.assertIn("87654321", trial.pubmed_links)
         session.close()
 
+    @patch("scripts.ingest_clinicaltrials._search_pubmed_pmids")
+    @patch("scripts.ingest_clinicaltrials._fetch_pubmed_summary")
+    def test_rebuild_title_fallback_below_threshold_is_not_full_match(self, mock_summary, mock_search):
+        mock_search.return_value = ["11223344"]
+        mock_summary.return_value = {
+            "11223344": {
+                "publication_date_raw": "2023 Jan 10",
+                "publication_title": "Pancreatic biomarker outcomes in advanced disease",
+                "journal": "Oncology",
+                "doi": "",
+            }
+        }
+        session = self.Session()
+        session.add(
+            ClinicalTrial(
+                nct_id="CTIS-ONLY-002",
+                title="Pancreatic KRAS pathway exploratory safety trial in metastatic disease",
+                sponsor="Example Sponsor",
+                admission_date="2023-01-01",
+                pubmed_links="NA",
+                has_results="no",
+            )
+        )
+        session.commit()
+
+        rebuild_trial_publications(
+            session,
+            max_nct_lookups=0,
+            max_title_lookups=5,
+            max_doi_lookups=0,
+            max_links_per_trial=5,
+            full_match_min_confidence=80,
+        )
+        pub = (
+            session.query(ClinicalTrialPublication)
+            .filter(ClinicalTrialPublication.nct_id == "CTIS-ONLY-002")
+            .one()
+        )
+        self.assertEqual(pub.match_method, "title_fuzzy")
+        self.assertEqual(pub.is_full_match, "no")
+        self.assertLess(pub.confidence, 80)
+
+        refresh_trial_publication_summary(session)
+        trial = session.get(ClinicalTrial, "CTIS-ONLY-002")
+        self.assertEqual(trial.has_results, "no")
+        self.assertEqual(trial.pubmed_links, "NA")
+        session.close()
+
     @patch("scripts.ingest_clinicaltrials.requests.get")
     def test_search_pubmed_pmids_parses_esearch_idlist(self, mock_get):
         mock_get.return_value.json.return_value = {

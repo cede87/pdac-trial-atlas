@@ -35,6 +35,7 @@ PUBLICATION_METHOD_CONFIDENCE = {
     "secondary_nct_exact": 90,
     "title_fuzzy": 72,
 }
+DEFAULT_FULL_MATCH_MIN_CONFIDENCE = 80
 
 
 def as_na(value):
@@ -167,6 +168,66 @@ def _extract_pubmed_pmids(payload: dict) -> list[str]:
     rows = payload.get("esearchresult", {}) or {}
     idlist = rows.get("idlist", []) or []
     return [str(item).strip() for item in idlist if str(item).strip().isdigit()]
+
+
+def _has_link_value(value: str) -> bool:
+    text = _clean(value)
+    return bool(text and text.lower() != "na")
+
+
+def _is_phase_ge_2(phase_value: str) -> bool:
+    raw = _clean(phase_value).lower()
+    if not raw:
+        return False
+    return bool(
+        re.search(
+            r"phase\s*ii\b|phase\s*2|phase\s*iii\b|phase\s*3|phase\s*iv\b|phase\s*4",
+            raw,
+        )
+    )
+
+
+def _is_terminal_status(status_value: str) -> bool:
+    raw = _clean(status_value).lower()
+    if not raw:
+        return False
+    return bool(re.search(r"completed|terminated", raw))
+
+
+def _trial_priority_key(trial: ClinicalTrial) -> tuple:
+    phase_ge_2 = _is_phase_ge_2(trial.phase)
+    terminal = _is_terminal_status(trial.status)
+    has_pub = _has_link_value(trial.pubmed_links)
+    completion_date = _parse_date(trial.primary_completion_date)
+    older_than_5y = False
+    if completion_date:
+        older_than_5y = (date.today() - completion_date).days >= (365 * 5)
+
+    # Lower value = higher priority.
+    # We prioritize high-signal rows where publication matching has biggest impact.
+    if phase_ge_2 and terminal and not has_pub and older_than_5y:
+        priority_bucket = 0
+    elif phase_ge_2 and terminal and not has_pub:
+        priority_bucket = 1
+    elif phase_ge_2 and not has_pub:
+        priority_bucket = 2
+    elif not has_pub:
+        priority_bucket = 3
+    else:
+        priority_bucket = 4
+
+    completion_sort = completion_date or date.max
+    return (priority_bucket, completion_sort, _clean(trial.nct_id))
+
+
+def _is_full_publication_match(
+    method: str,
+    confidence: int,
+    full_match_min_confidence: int,
+) -> bool:
+    if method in {"pubmed_link", "nct_exact", "secondary_nct_exact", "doi_reference"}:
+        return True
+    return int(confidence) >= int(full_match_min_confidence)
 
 
 def _search_pubmed_pmids(term: str, max_links: int = 5) -> list[str]:
@@ -413,11 +474,31 @@ def ensure_publications_table(session) -> None:
                 journal TEXT,
                 match_method TEXT,
                 confidence INTEGER,
+                is_full_match TEXT,
                 FOREIGN KEY(nct_id) REFERENCES clinical_trials(nct_id)
             )
             """
         )
     )
+    rows = session.execute(text("PRAGMA table_info(trial_publications)")).fetchall()
+    existing = {row[1] for row in rows}
+    if "is_full_match" not in existing:
+        session.execute(text("ALTER TABLE trial_publications ADD COLUMN is_full_match TEXT"))
+        session.execute(
+            text(
+                """
+                UPDATE trial_publications
+                SET is_full_match = CASE
+                    WHEN match_method IN ('pubmed_link', 'nct_exact', 'secondary_nct_exact', 'doi_reference')
+                        THEN 'yes'
+                    WHEN COALESCE(confidence, 0) >= :threshold
+                        THEN 'yes'
+                    ELSE 'no'
+                END
+                """
+            ),
+            {"threshold": DEFAULT_FULL_MATCH_MIN_CONFIDENCE},
+        )
     session.execute(
         text(
             "CREATE INDEX IF NOT EXISTS idx_trial_publications_nct_id ON trial_publications(nct_id)"
@@ -433,6 +514,11 @@ def ensure_publications_table(session) -> None:
             "CREATE INDEX IF NOT EXISTS idx_trial_publications_doi ON trial_publications(doi)"
         )
     )
+    session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS idx_trial_publications_full_match ON trial_publications(is_full_match)"
+        )
+    )
     session.commit()
 
 
@@ -443,6 +529,7 @@ def rebuild_trial_publications(
     max_title_lookups: int = 300,
     max_doi_lookups: int = 200,
     max_links_per_trial: int = 5,
+    full_match_min_confidence: int = DEFAULT_FULL_MATCH_MIN_CONFIDENCE,
 ) -> dict[str, int]:
     ensure_publications_table(session)
     session.query(ClinicalTrialPublication).delete()
@@ -457,9 +544,13 @@ def rebuild_trial_publications(
     title_lookups_used = 0
     doi_lookups_used = 0
     publication_rows = 0
+    full_match_rows = 0
+    candidate_rows = 0
     trials_with_publications = 0
+    trials_with_candidates = 0
 
-    trials = session.query(ClinicalTrial).order_by(ClinicalTrial.nct_id.asc()).all()
+    trials = session.query(ClinicalTrial).all()
+    trials.sort(key=_trial_priority_key)
     for trial in trials:
         method_by_pmid: dict[str, tuple[str, int]] = {}
         raw_dois = set(_extract_dois(trial.pubmed_links))
@@ -529,7 +620,7 @@ def rebuild_trial_publications(
                             similarity = SequenceMatcher(None, trial_title, candidate_title).ratio()
                         if similarity < 0.38:
                             continue
-                        confidence = int(60 + similarity * 30)
+                        confidence = int(round(similarity * 100))
                         _assign_method(
                             method_by_pmid,
                             pmid,
@@ -544,6 +635,8 @@ def rebuild_trial_publications(
             summary_cache.update(_fetch_pubmed_summary(summary_missing))
 
         inserted_keys = set()
+        trial_has_full_match = False
+        trial_has_candidate = False
         for pmid in pmids:
             summary = summary_cache.get(pmid, {}) or {}
             method, confidence = method_by_pmid.get(pmid, ("title_fuzzy", 70))
@@ -559,6 +652,11 @@ def rebuild_trial_publications(
             if key in inserted_keys:
                 continue
             inserted_keys.add(key)
+            is_full_match = _is_full_publication_match(
+                method,
+                confidence,
+                full_match_min_confidence,
+            )
 
             session.add(
                 ClinicalTrialPublication(
@@ -570,9 +668,16 @@ def rebuild_trial_publications(
                     journal=_clean(summary.get("journal")) or "NA",
                     match_method=method,
                     confidence=confidence,
+                    is_full_match="yes" if is_full_match else "no",
                 )
             )
             publication_rows += 1
+            if is_full_match:
+                full_match_rows += 1
+                trial_has_full_match = True
+            else:
+                candidate_rows += 1
+                trial_has_candidate = True
 
         # Keep DOI-only records when no PMID mapping exists.
         pmid_set = set(pmids)
@@ -591,17 +696,25 @@ def rebuild_trial_publications(
                     journal="NA",
                     match_method="doi_reference",
                     confidence=PUBLICATION_METHOD_CONFIDENCE["doi_reference"],
+                    is_full_match="yes",
                 )
             )
             publication_rows += 1
+            full_match_rows += 1
+            trial_has_full_match = True
 
-        if pmids or raw_dois:
+        if trial_has_full_match:
             trials_with_publications += 1
+        elif trial_has_candidate:
+            trials_with_candidates += 1
 
     session.commit()
     return {
         "publication_rows": publication_rows,
         "trials_with_publications": trials_with_publications,
+        "full_match_rows": full_match_rows,
+        "candidate_rows": candidate_rows,
+        "trials_with_candidates": trials_with_candidates,
         "nct_lookups_used": nct_lookups_used,
         "title_lookups_used": title_lookups_used,
         "doi_lookups_used": doi_lookups_used,
@@ -615,6 +728,7 @@ def refresh_trial_publication_summary(session) -> int:
         pubs = (
             session.query(ClinicalTrialPublication)
             .filter(ClinicalTrialPublication.nct_id == trial.nct_id)
+            .filter(ClinicalTrialPublication.is_full_match == "yes")
             .order_by(ClinicalTrialPublication.confidence.desc(), ClinicalTrialPublication.publication_date.asc())
             .all()
         )
@@ -1157,12 +1271,16 @@ def run():
     pubmed_title_lookup_limit = int(os.getenv("PUBMED_TITLE_LOOKUP_LIMIT", "300"))
     pubmed_doi_lookup_limit = int(os.getenv("PUBMED_DOI_LOOKUP_LIMIT", "200"))
     pubmed_per_trial_limit = int(os.getenv("PUBMED_PER_TRIAL_LINK_LIMIT", "5"))
+    pubmed_full_match_threshold = int(
+        os.getenv("PUBMED_FULL_MATCH_MIN_CONFIDENCE", str(DEFAULT_FULL_MATCH_MIN_CONFIDENCE))
+    )
     publication_stats = rebuild_trial_publications(
         session,
         max_nct_lookups=pubmed_nct_lookup_limit,
         max_title_lookups=pubmed_title_lookup_limit,
         max_doi_lookups=pubmed_doi_lookup_limit,
         max_links_per_trial=pubmed_per_trial_limit,
+        full_match_min_confidence=pubmed_full_match_threshold,
     )
     publication_rows_refreshed = refresh_trial_publication_summary(session)
     pubmed_dates = backfill_pubmed_publication_dates(session, max_lookups=pubmed_date_limit)
@@ -1181,7 +1299,11 @@ def run():
     print(
         "Publication index: "
         f"rows={publication_stats['publication_rows']}, "
-        f"trials={publication_stats['trials_with_publications']}, "
+        f"full_rows={publication_stats['full_match_rows']}, "
+        f"candidate_rows={publication_stats['candidate_rows']}, "
+        f"full_trials={publication_stats['trials_with_publications']}, "
+        f"candidate_trials={publication_stats['trials_with_candidates']}, "
+        f"full_match_threshold={pubmed_full_match_threshold}, "
         f"nct_lookups={publication_stats['nct_lookups_used']}, "
         f"title_lookups={publication_stats['title_lookups_used']}, "
         f"doi_lookups={publication_stats['doi_lookups_used']}"

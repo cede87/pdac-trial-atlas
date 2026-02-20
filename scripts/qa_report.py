@@ -6,8 +6,9 @@ import argparse
 import re
 from collections import Counter
 
-from db.models import ClinicalTrial, ClinicalTrialDetails
+from db.models import ClinicalTrial, ClinicalTrialDetails, ClinicalTrialPublication
 from db.session import SessionLocal
+from sqlalchemy import text
 
 
 def print_section(title: str):
@@ -80,6 +81,42 @@ def run(
     db = SessionLocal()
     trials = db.query(ClinicalTrial).all()
     details = db.query(ClinicalTrialDetails).all()
+    db.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS trial_publications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nct_id TEXT NOT NULL,
+                pmid TEXT,
+                doi TEXT,
+                publication_date TEXT,
+                publication_title TEXT,
+                journal TEXT,
+                match_method TEXT,
+                confidence INTEGER,
+                is_full_match TEXT
+            )
+            """
+        )
+    )
+    publication_columns = {
+        row[1] for row in db.execute(text("PRAGMA table_info(trial_publications)")).fetchall()
+    }
+    if "is_full_match" not in publication_columns:
+        db.execute(text("ALTER TABLE trial_publications ADD COLUMN is_full_match TEXT"))
+        db.execute(
+            text(
+                "UPDATE trial_publications SET is_full_match = CASE WHEN COALESCE(confidence, 0) >= 80 THEN 'yes' ELSE 'no' END"
+            )
+        )
+        db.commit()
+    publications = db.query(ClinicalTrialPublication).all()
+    full_publication_rows = [
+        p for p in publications if (p.is_full_match or "").strip().lower() == "yes"
+    ]
+    candidate_publication_rows = [
+        p for p in publications if (p.is_full_match or "").strip().lower() == "no"
+    ]
     total = len(trials)
 
     classes = Counter((t.therapeutic_class or "missing") for t in trials)
@@ -210,6 +247,9 @@ def run(
     print_section("Overview")
     print(f"total_trials: {total}")
     print(f"details_rows: {len(details)}")
+    print(f"publication_rows: {len(publications)}")
+    print(f"publication_full_rows: {len(full_publication_rows)}")
+    print(f"publication_candidate_rows: {len(candidate_publication_rows)}")
     print(f"missing_details_rows: {len(missing_details)}")
     print(f"orphan_details_rows: {len(orphan_details)}")
     print(f"unknown_total: {len(unknown)}")

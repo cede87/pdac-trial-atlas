@@ -65,3 +65,4 @@ class ClinicalTrialPublication(Base):
     journal = Column(Text)
     match_method = Column(String)
     confidence = Column(Integer)
+    is_full_match = Column(String)

@@ -259,6 +259,7 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                         COUNT(*) AS publication_count,
                         GROUP_CONCAT(DISTINCT match_method) AS match_methods
                     FROM trial_publications
+                    WHERE LOWER(COALESCE(is_full_match, 'yes')) = 'yes'
                     GROUP BY nct_id
                 ) pub ON pub.nct_id = c.nct_id
                 ORDER BY c.nct_id
@@ -271,6 +272,7 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
                 for token in (
                     "pubmed_links",
                     "trial_publications",
+                    "is_full_match",
                     "primary_completion_date",
                     "publication_date",
                     "publication_lag_days",
@@ -722,8 +724,8 @@ def render_explorer(filtered: pd.DataFrame):
                 "Paper Link": "First linked PubMed paper found by NCT.",
                 "Publication Date": "Earliest linked PubMed publication date (when available).",
                 "Publication Lag (days)": "Publication date minus primary completion date.",
-                "Publication Count": "Number of normalized publication records linked to this trial.",
-                "Publication Match Methods": "Linking methods used for publication matching.",
+                "Publication Count": "Number of full-match publication records linked to this trial.",
+                "Publication Match Methods": "Methods used for full-match publication linking.",
                 "Evidence Strength": "Heuristic evidence strength based on phase, results, and timing.",
                 "Dead End": "Phase >=2, completed/terminated, no publication after 5 years.",
                 "Conditions": "Reported study conditions.",
@@ -1337,7 +1339,7 @@ def render_analytics(filtered: pd.DataFrame):
     c1, c2, c3 = st.columns(3)
     with c1:
         st.markdown(
-            f'<div class="metric-card"><div class="metric-label">Publication Index Coverage</div>'
+            f'<div class="metric-card"><div class="metric-label">Full-Match Publication Coverage</div>'
             f'<div class="metric-value">{publication_index_coverage:.1f}%</div></div>',
             unsafe_allow_html=True,
         )
