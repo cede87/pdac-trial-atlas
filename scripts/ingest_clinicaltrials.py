@@ -101,6 +101,36 @@ def _parse_date(value: str) -> Optional[date]:
     return None
 
 
+def _normalize_date_string(value: str) -> str:
+    if is_na(value):
+        return ""
+    raw = str(value).strip()
+    if not raw:
+        return ""
+    if re.match(r"^\d{4}(-\d{2}){0,2}$", raw):
+        return raw
+    raw = raw.split("T", 1)[0].strip()
+    raw = raw.split(" ", 1)[0].strip()
+    for fmt in (
+        "%Y/%m/%d",
+        "%d/%m/%Y",
+        "%m/%d/%Y",
+        "%Y.%m.%d",
+        "%d.%m.%Y",
+        "%d-%m-%Y",
+        "%Y-%m-%d",
+        "%d %b %Y",
+        "%d %B %Y",
+        "%Y %b %d",
+    ):
+        try:
+            parsed = datetime.strptime(raw, fmt).date()
+            return parsed.strftime("%Y-%m-%d")
+        except Exception:
+            continue
+    return ""
+
+
 def _extract_year(value: str) -> Optional[int]:
     parsed = _parse_date(value)
     return parsed.year if parsed else None
@@ -1387,24 +1417,25 @@ def compute_signal_fields(session) -> int:
     return updated
 
 
-def merge_ctis_overlaps(session):
+def merge_registry_overlaps(session, source: str):
     """
-    De-duplicate CTIS rows already linked to a ClinicalTrials.gov NCT ID.
+    De-duplicate registry rows already linked to a ClinicalTrials.gov NCT ID.
 
     Rule:
-    - if CTIS row has secondary_id=NCTxxxxx and that NCT exists as a row,
-      merge CTIS enrichment into that NCT row and remove CTIS duplicate row.
+    - if source row has secondary_id=NCTxxxxx and that NCT exists as a row,
+      merge source enrichment into that NCT row and remove duplicate row.
     """
-    ctis_trials = (
+    source_trials = (
         session.query(ClinicalTrial)
-        .filter(ClinicalTrial.source == "ctis")
+        .filter(ClinicalTrial.source == source)
         .filter(ClinicalTrial.secondary_id.like("NCT%"))
         .all()
     )
 
     merged_count = 0
-    for eu_trial in ctis_trials:
-        nct_id = (eu_trial.secondary_id or "").strip()
+    for eu_trial in source_trials:
+        nct_candidates = re.findall(r"NCT\\d{6,8}", eu_trial.secondary_id or "")
+        nct_id = (nct_candidates[0] if nct_candidates else "").strip()
         if not nct_id:
             continue
         us_trial = session.get(ClinicalTrial, nct_id)
@@ -1413,8 +1444,13 @@ def merge_ctis_overlaps(session):
         if us_trial is eu_trial:
             continue
 
-        # Mark this row as correlated with CTIS and keep the EU id as alternate id.
-        us_trial.source = "clinicaltrials.gov+ctis"
+        # Mark this row as correlated with EU registry and keep the EU id as alternate id.
+        us_source = (us_trial.source or "").strip()
+        if us_source.lower().startswith("clinicaltrials.gov"):
+            parts = [p.strip() for p in us_source.split("+") if p.strip()]
+            if source not in parts:
+                parts.append(source)
+            us_trial.source = "+".join(parts) if parts else us_source
         us_trial.secondary_id = as_na(_merge_values(us_trial.secondary_id, eu_trial.nct_id, sep=", "))
         us_trial.trial_link = as_na(_merge_values(us_trial.trial_link, eu_trial.trial_link, sep=" | "))
 
@@ -1492,6 +1528,24 @@ def merge_ctis_overlaps(session):
 
     session.commit()
     return merged_count
+
+
+def normalize_admission_dates(session) -> int:
+    updated = 0
+    trials = session.query(ClinicalTrial).all()
+    for trial in trials:
+        normalized = _normalize_date_string(trial.admission_date)
+        if not normalized:
+            if not is_na(trial.admission_date):
+                trial.admission_date = "NA"
+                updated += 1
+            continue
+        if trial.admission_date != normalized:
+            trial.admission_date = normalized
+            updated += 1
+    if updated:
+        session.commit()
+    return updated
 
 
 def ensure_columns(session):
@@ -1649,8 +1703,10 @@ def run():
     ensure_details_table_and_backfill(session)
     ensure_publications_table(session)
 
-    print("Fetching PDAC-related trials from ClinicalTrials.gov ...")
-    ctgov_studies = fetch_trials_pancreas()
+    include_ctgov = os.getenv("INGEST_CTGOV", "1").strip().lower() not in {"0", "false", "no"}
+    if include_ctgov:
+        print("Fetching PDAC-related trials from ClinicalTrials.gov ...")
+    ctgov_studies = fetch_trials_pancreas() if include_ctgov else []
 
     include_ctis = os.getenv("INGEST_CTIS", "1").strip().lower() not in {"0", "false", "no"}
     include_euctr = os.getenv("INGEST_EUCTR", "1").strip().lower() not in {"0", "false", "no"}
@@ -1724,7 +1780,8 @@ def run():
         trial.phase = as_na(s.get("phase"))
         trial.status = as_na(s.get("status"))
         trial.sponsor = as_na(s.get("sponsor"))
-        trial.admission_date = as_na(s.get("admission_date"))
+        admission_raw = _normalize_date_string(s.get("admission_date"))
+        trial.admission_date = as_na(admission_raw) if admission_raw else "NA"
         trial.last_update_date = as_na(s.get("last_update_date"))
         trial.primary_completion_date = as_na(s.get("primary_completion_date"))
         trial.has_results = as_na(s.get("has_results"))
@@ -1764,9 +1821,12 @@ def run():
 
     session.commit()
 
+    admission_fixed = normalize_admission_dates(session)
+
     pubmed_lookup_limit = int(os.getenv("PUBMED_LOOKUP_LIMIT", "200"))
     enriched, results_fixed = enrich_pubmed_links(session, max_lookups=pubmed_lookup_limit)
-    merged_ctis = merge_ctis_overlaps(session)
+    merged_ctis = merge_registry_overlaps(session, "ctis")
+    merged_euctr = merge_registry_overlaps(session, "euctr")
     pubmed_date_limit = int(os.getenv("PUBMED_DATE_LOOKUP_LIMIT", "200"))
     mesh_lookup_limit = int(os.getenv("PUBMED_MESH_LOOKUP_LIMIT", "200"))
     pubmed_nct_lookup_limit = int(os.getenv("PUBMED_NCT_LOOKUP_LIMIT", "400"))
@@ -1797,7 +1857,9 @@ def run():
     signal_updated = compute_signal_fields(session)
 
     print(f"\nTrials processed: {len(studies)}")
-    print(f"ClinicalTrials.gov rows: {len(ctgov_studies)}")
+    print(f"Admission dates normalized: {admission_fixed}")
+    if include_ctgov:
+        print(f"ClinicalTrials.gov rows: {len(ctgov_studies)}")
     if include_ctis:
         print(f"CTIS rows: {len(ctis_studies)}")
     if include_euctr:
@@ -1805,6 +1867,7 @@ def run():
     print(f"New trials inserted: {inserted}")
     print(f"Existing trials updated: {updated}")
     print(f"CTIS↔NCT overlaps merged: {merged_ctis}")
+    print(f"EUCTR↔NCT overlaps merged: {merged_euctr}")
     print(f"PubMed links enriched (this run): {enriched}")
     print(f"has_results corrected from PubMed links: {results_fixed}")
     print(

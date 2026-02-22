@@ -3,7 +3,7 @@ An open, evidence-graded atlas of pancreatic ductal adenocarcinoma (PDAC) clinic
 
 ## Version
 
-Current release: **v1.4**
+Current release: **v1.5**
 
 ## Disclaimer
 
@@ -26,6 +26,7 @@ The dashboard runs 100% local and reads from `pdac_trials.db`.
 Ingestion now merges:
 - ClinicalTrials.gov PDAC trials
 - CTIS (EU Clinical Trials Information System) PDAC trials
+- EUCTR (legacy EU Clinical Trials Register) PDAC trials
 
 During ingestion, PubMed links are enriched in two stages:
 - direct NCT enrichment (`pubmed_links`)
@@ -34,7 +35,7 @@ During ingestion, PubMed links are enriched in two stages:
 Legacy PubMed enrichment control:
 - `PUBMED_LOOKUP_LIMIT=1000` increase direct NCT PubMed enrichment scope
 
-Publication-index controls (v1.4):
+Publication-index controls (v1.5):
 - `PUBMED_NCT_LOOKUP_LIMIT=400` max NCT exact lookups into PubMed
 - `PUBMED_TITLE_LOOKUP_LIMIT=300` max title-fallback lookups
 - `PUBMED_DOI_LOOKUP_LIMIT=200` max DOI lookups
@@ -80,7 +81,7 @@ One-command dataset release build (CSV + Parquet + schema + checksums + zip):
   - `RUN_FULL_INDEX=1` (default) or `0`
   - `RUN_TESTS=1` (default) or `0`
   - `RUN_QA=1` (default) or `0`
-  - `DATASET_VERSION=1.4`
+  - `DATASET_VERSION=1.5`
 - Note: generated dataset artifacts (`dataset/README.md`, `dataset/schema.json`, CSV/Parquet, checksums, zip) are git-ignored and produced per release run.
 
 CTIS controls (optional):
@@ -90,12 +91,20 @@ CTIS controls (optional):
 - `CTIS_MAX_OVERVIEW=200` limit scanned overview rows
 - `CTIS_MAX_TRIALS=100` limit normalized CTIS trials kept
 
+ClinicalTrials.gov controls (optional):
+- `INGEST_CTGOV=0` skip ClinicalTrials.gov ingestion for a run
+
 EUCTR (legacy EU register) controls (optional):
 - `INGEST_EUCTR=0` skip EUCTR ingestion for a run
 - `EUCTR_QUERY_TERMS=pancreatic,pancreas,pdac,pancreatic cancer` to set custom EUCTR search terms
 - `EUCTR_MAX_PAGES=50` limit fetched EUCTR result pages per term
 - `EUCTR_MAX_TRIALS=1000` limit normalized EUCTR trials kept
 - `EUCTR_PAGE_SLEEP=0.25` sleep (seconds) between EUCTR pages to avoid throttling
+- `EUCTR_MAX_WORKERS=1` parallelism across query terms (max useful = number of terms)
+- `EUCTR_STOP_IF_NO_NEW_PAGES=10` stop a term after N consecutive pages add no new EudraCT IDs
+- `EUCTR_CACHE=1` enable cached page downloads (set `0` to disable)
+- `EUCTR_CACHE_DIR=/path/to/cache` override cache location (default: `.cache/euctr`)
+- `EUCTR_PROGRESS=1` show per-page progress logs
 
 ### Identifier model (important)
 
@@ -107,15 +116,15 @@ EUCTR (legacy EU register) controls (optional):
   - `NA` when not available
 - `secondary_id` is still stored internally for lineage/correlation, but is no longer shown in the main table.
 
-### Cross-source de-duplication (CTIS ↔ ClinicalTrials.gov)
+### Cross-source de-duplication (CTIS/EUCTR ↔ ClinicalTrials.gov)
 
-During ingestion, if a CTIS trial has `secondary_id = NCT...` and that NCT exists in the dataset:
+During ingestion, if a CTIS or EUCTR trial has `secondary_id` containing an `NCT...` and that NCT exists in the dataset:
 
-1. CTIS row is merged into the NCT row.
-2. Source becomes `clinicaltrials.gov+ctis`.
-3. CTIS identifier is kept as alternate id in `secondary_id`.
+1. The EU registry row is merged into the NCT row.
+2. Source becomes `clinicaltrials.gov+ctis`, `clinicaltrials.gov+euctr`, or `clinicaltrials.gov+ctis+euctr`.
+3. The EU registry identifier is kept as alternate id in `secondary_id`.
 4. Source links are merged in `trial_link` (`ctgov | ctis`).
-5. CTIS duplicate row is removed.
+5. The duplicate EU row is removed.
 
 This prevents duplicate entries for the same trial across registries.
 
@@ -212,7 +221,7 @@ WHERE publication_lag_days < 0;
 
 Expected result: `0`.
 
-## Signal extraction (v1.4)
+## Signal extraction (v1.5)
 
 The dataset now computes four signal fields focused on trial evidence quality:
 
@@ -255,7 +264,7 @@ Publication-link confidence rule:
 - `trial_publications` stores normalized publication rows (`pmid`, `doi`, `publication_date`, `match_method`, `confidence`, `is_full_match`) and is used to compute publication coverage analytics.
 - `pubmed_search_cache` and `pubmed_summary_cache` persist PubMed query/results cache so future ingestion runs reuse prior lookups instead of repeating network calls.
 - Both tables are linked 1:1 via `nct_id`.
-- In the dashboard Quick filters bar, `Origin` lets you filter by source (`clinicaltrials.gov`, `ctis`, or merged `clinicaltrials.gov+ctis`).
+- In the dashboard Quick filters bar, `Origin` lets you filter by source (`clinicaltrials.gov`, `ctis`, `euctr`, or merged `clinicaltrials.gov+ctis` / `clinicaltrials.gov+euctr`).
 - In Explorer, `Trial ID` is the primary row ID and `NCT ID` is shown explicitly as a separate column.
 - CTIS rows that map to an existing NCT (via CTIS secondary NCT ID) are automatically merged to avoid duplicates.
 - In Explorer, table text selection/copy with mouse is enabled (AgGrid text selection).
@@ -267,7 +276,7 @@ Below is what each field stores, expected values/patterns, and one quick example
 | Column | What it is | Possible values / format |
 |---|---|---|
 | `nct_id` | Primary trial key in this dataset | `NCT...` for ClinicalTrials.gov or `YYYY-NNNNNN-NN-NN` for CTIS |
-| `source` | Source registry for the row | `clinicaltrials.gov`, `ctis`, `clinicaltrials.gov+ctis` |
+| `source` | Source registry for the row | `clinicaltrials.gov`, `ctis`, `euctr`, `clinicaltrials.gov+ctis`, `clinicaltrials.gov+euctr`, `clinicaltrials.gov+ctis+euctr` |
 | `secondary_id` | Optional alternate registry ID(s) | May include `NCT...` and/or EU CTIS codes |
 | `trial_link` | Direct URL to the source trial page | ClinicalTrials.gov or CTIS URL |
 | `title` | Brief trial title | Free text |
@@ -342,7 +351,7 @@ focus_tags: supportive_outcomes,advanced_disease
 pdac_match_reason: generic_pancreatic_cancer
 ```
 
-## Current normalization notes (v1.4)
+## Current normalization notes (v1.5)
 
 - CTIS uses multiple search terms by default (not only `pancreatic`) to improve capture.
 - CTIS phases are normalized to `PHASE1`, `PHASE2`, `PHASE3`, `PHASE4` (+ combined values).
