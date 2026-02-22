@@ -9,12 +9,11 @@ if [[ ! -x "$PYTHON_BIN" ]]; then
   PYTHON_BIN="python3"
 fi
 
-DATASET_VERSION="${DATASET_VERSION:-1.4}"
+DATASET_VERSION="${DATASET_VERSION:-1.6}"
 RUN_FULL_INDEX="${RUN_FULL_INDEX:-1}"
 CLEAR_PUBMED_CACHE="${CLEAR_PUBMED_CACHE:-0}"
 RUN_TESTS="${RUN_TESTS:-1}"
 RUN_QA="${RUN_QA:-1}"
-RUN_EXPORT="${RUN_EXPORT:-1}"
 
 PUBMED_NCT_LOOKUP_LIMIT="${PUBMED_NCT_LOOKUP_LIMIT:-2000}"
 PUBMED_TITLE_LOOKUP_LIMIT="${PUBMED_TITLE_LOOKUP_LIMIT:-2000}"
@@ -68,14 +67,12 @@ if [[ "$RUN_QA" == "1" ]]; then
   PYTHONPATH=. "$PYTHON_BIN" scripts/qa_report.py --strict --limit 20
 fi
 
-if [[ "$RUN_EXPORT" == "1" ]]; then
-  echo "==> Exporting CSV from DB"
-  PYTHONPATH=. "$PYTHON_BIN" scripts/export_to_csv.py
-fi
-
 echo "==> Building dataset artifacts"
 mkdir -p dataset
-cp pdac_trials_export.csv dataset/pdac-trials.csv
+if [[ ! -f dataset/pdac-trials.csv ]]; then
+  echo "Missing dataset/pdac-trials.csv. This repo no longer regenerates it."
+  exit 1
+fi
 
 PYTHONPATH=. DATASET_VERSION="$DATASET_VERSION" "$PYTHON_BIN" - <<'PY'
 import json
@@ -95,8 +92,8 @@ df = pd.read_csv(csv_path, dtype=str).fillna("NA")
 df.to_parquet(parquet_path, index=False)
 
 known_descriptions = {
-    "nct_id": "Primary trial identifier (NCT ID for ClinicalTrials.gov rows, EU CT number for CTIS-native rows).",
-    "source": "Source registry: clinicaltrials.gov, ctis, or clinicaltrials.gov+ctis.",
+    "nct_id": "Primary trial identifier (NCT ID for ClinicalTrials.gov rows, EU CT number for CTIS/EUCTR-native rows).",
+    "source": "Source registry: clinicaltrials.gov, ctis, euctr, or merged sources.",
     "secondary_id": "Secondary identifiers (comma-separated) when available.",
     "trial_link": "Source trial URL(s), separated by ' | ' when merged.",
     "title": "Trial title.",
@@ -131,6 +128,45 @@ known_descriptions = {
     "therapeutic_class": "Normalized therapeutic class.",
     "focus_tags": "Comma-separated focus tags.",
     "pdac_match_reason": "Reason why trial matched PDAC cohort.",
+    "trial_uid": "Deduplicated unique trial identifier (NCT/EUCT or stable hash).",
+    "source_count": "Number of distinct sources merged for this trial.",
+    "sources_list": "Comma-separated sources contributing to the merged record.",
+    "has_publication": "yes/no based on full-match publications.",
+    "publication_year_first": "Year of earliest linked publication.",
+    "journal_impact_flag": "yes if any linked publication is in a high-impact journal list.",
+    "trial_outcome_label": "Outcome label: success/completed_no_publication/failure/ongoing/unknown.",
+    "binary_success_label": "Binary outcome label: 1=success, 0=failure, NA otherwise.",
+    "start_year": "Year derived from admission_date.",
+    "completion_year": "Year derived from primary_completion_date.",
+    "duration_months": "Months between admission_date and primary_completion_date (non-negative).",
+    "publication_delay_months": "Months between primary_completion_date and publication_date (non-negative).",
+    "is_post_2015": "yes if start_year >= 2015.",
+    "years_since_start": "Years from start_year to dataset generation year.",
+    "phase_numeric": "Numeric phase (e.g., 1.0, 2.0, 1.5 for Phase I/II).",
+    "is_phase_1_2_combined": "yes if Phase I/II combined.",
+    "num_arms": "Parsed number of study arms when available.",
+    "is_randomized": "yes if study design indicates randomization.",
+    "is_multi_center": "yes if study design indicates multi-center.",
+    "country_count": "Unique country count derived from locations.",
+    "is_multi_country": "yes if country_count > 1.",
+    "intervention_type": "Primary intervention type (first in intervention_types).",
+    "is_combination_therapy": "yes if multiple intervention types or combination phrasing.",
+    "sponsor_normalized": "Normalized sponsor label for aggregation.",
+    "sponsor_type": "Sponsor class: big_pharma/biotech/academic/unknown.",
+    "sponsor_trial_count_total": "Prior trials for sponsor (start_year < current).",
+    "sponsor_trial_count_last_5y": "Prior trials for sponsor in last 5 years.",
+    "sponsor_success_rate_historical": "Historical sponsor success rate (success vs failure).",
+    "is_top_10_sponsor": "yes if sponsor is in top 10 by prior count.",
+    "target_primary": "Primary target/agent derived from interventions/tags/class.",
+    "target_category": "Target category (therapeutic_class or intervention type).",
+    "target_trial_count_total": "Prior trials for target (start_year < current).",
+    "target_trial_count_last_5y": "Prior trials for target in last 5 years.",
+    "target_success_rate_historical": "Historical target success rate (success vs failure).",
+    "is_novel_target": "yes if no prior trials for target.",
+    "target_literature_count_last_5y": "Prior linked publications in last 5 years for target.",
+    "literature_trial_ratio": "Literature/trial ratio for last 5 years.",
+    "is_literature_rich_trial_sparse": "yes if literature is high and trials are sparse.",
+    "llm_context_block": "Plain-text context block for LLM use.",
 }
 
 schema = {
@@ -169,11 +205,13 @@ echo "==> Writing checksums"
 shasum -a 256 \
   dataset/pdac-trials.csv \
   dataset/pdac-trials.parquet \
-  dataset/schema.json > dataset/SHA256SUMS.txt
+  dataset/schema.json \
+  dataset/pdac_yearly_metrics.csv > dataset/SHA256SUMS.txt
 
 echo "==> Done"
 echo "Artifacts:"
 echo "  - dataset/pdac-trials.csv"
 echo "  - dataset/pdac-trials.parquet"
 echo "  - dataset/schema.json"
+echo "  - dataset/pdac_yearly_metrics.csv"
 echo "  - dataset/SHA256SUMS.txt"
