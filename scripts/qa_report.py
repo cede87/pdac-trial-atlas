@@ -31,7 +31,15 @@ KNOWN_INTERVENTION_TYPES = {
     "PROCEDURE",
     "RADIATION",
 }
-ALLOWED_SOURCES = {"clinicaltrials.gov", "ctis", "clinicaltrials.gov+ctis", "euctr", "na"}
+ALLOWED_SOURCES = {
+    "clinicaltrials.gov",
+    "ctis",
+    "euctr",
+    "clinicaltrials.gov+ctis",
+    "clinicaltrials.gov+euctr",
+    "clinicaltrials.gov+ctis+euctr",
+    "na",
+}
 DEFAULT_MIN_PUBDATE_COVERAGE_OF_PUBMED = 0.90
 DEFAULT_MIN_PRIMARY_COMPLETION_COVERAGE = 0.50
 DEFAULT_MAX_UNKNOWN_EVIDENCE_RATIO = 0.80
@@ -72,18 +80,20 @@ def _link_matches_source(source: str, link: str) -> bool:
     url = (link or "").strip().lower()
     if src in {"", "na"}:
         return bool(url)
-    if src == "clinicaltrials.gov":
-        return "clinicaltrials.gov/study/" in url
-    if src == "ctis":
-        return "euclinicaltrials.eu/search-for-clinical-trials/" in url
-    if src == "clinicaltrials.gov+ctis":
-        return (
-            "clinicaltrials.gov/study/" in url
-            and "euclinicaltrials.eu/search-for-clinical-trials/" in url
-        )
-    if src == "euctr":
-        return "clinicaltrialsregister.eu/ctr-search/" in url
-    return False
+
+    def _matches_single(key: str) -> bool:
+        if key == "clinicaltrials.gov":
+            return "clinicaltrials.gov/study/" in url
+        if key == "ctis":
+            return "euclinicaltrials.eu/search-for-clinical-trials/" in url
+        if key == "euctr":
+            return "clinicaltrialsregister.eu/ctr-search/" in url
+        return False
+
+    parts = [p.strip() for p in src.split("+") if p.strip()]
+    if not parts:
+        return bool(url)
+    return all(_matches_single(part) for part in parts)
 
 
 def run(
@@ -225,10 +235,11 @@ def run(
         and _parse_date(t.admission_date) > _parse_date(t.primary_completion_date)
     ]
     negative_publication_lag = [
-        t for t in trials
-        if _parse_date(t.publication_date)
-        and _parse_date(t.primary_completion_date)
-        and _parse_date(t.publication_date) < _parse_date(t.primary_completion_date)
+        t
+        for t in trials
+        if (t.publication_lag_days is not None)
+        and not _is_na(str(t.publication_lag_days))
+        and int(t.publication_lag_days) < 0
     ]
 
     intervention_type_issues = []

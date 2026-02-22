@@ -11,6 +11,8 @@ used by other ingestion sources.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import os
+from pathlib import Path
 import re
 import time
 from typing import Dict, Iterable, List, Optional
@@ -29,12 +31,17 @@ DEFAULT_EUCTR_QUERY_TERMS = [
     "pdac",
     "pancreatic adenocarcinoma",
     "ductal adenocarcinoma",
+    "pancreatic ductal adenocarcinoma",
+    "pancreatic carcinoma",
+    "pancreatic neoplasm",
 ]
 
 REQUEST_TIMEOUT = 45
 RETRYABLE_STATUS_CODES = {403, 429, 500, 502, 503, 504}
 
 STATUS_RE = re.compile(r"\(([^)]+)\)")
+NCT_RE = re.compile(r"(NCT\d{6,8})", re.IGNORECASE)
+PHASE_RE = re.compile(r"\bphase\s*(i{1,4}|1|2|3|4)\b", re.IGNORECASE)
 
 
 @dataclass
@@ -70,6 +77,32 @@ def _uniq(values: Iterable[str]) -> List[str]:
     return out
 
 
+def _slugify(value: str) -> str:
+    if not value:
+        return "query"
+    slug = re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+    return slug or "query"
+
+
+def _cache_root() -> Path:
+    override = os.getenv("EUCTR_CACHE_DIR", "").strip()
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parents[1] / ".cache" / "euctr"
+
+
+def _cache_path(query: str, page: int) -> Path:
+    return _cache_root() / _slugify(query) / f"page_{page}.txt"
+
+
+def _cache_enabled() -> bool:
+    return os.getenv("EUCTR_CACHE", "1").strip().lower() not in {"0", "false", "no"}
+
+
+def _progress_enabled() -> bool:
+    return os.getenv("EUCTR_PROGRESS", "1").strip().lower() not in {"0", "false", "no"}
+
+
 def _request_summary(query: str, page: int, retries: int = 4) -> str:
     last_error: Optional[Exception] = None
     params = {"query": query, "mode": "current_page", "page": page}
@@ -92,6 +125,19 @@ def _request_summary(query: str, page: int, retries: int = 4) -> str:
     if last_error:
         raise last_error
     return ""
+
+
+def _get_summary_text(query: str, page: int) -> tuple[str, str]:
+    if _cache_enabled():
+        cache_path = _cache_path(query, page)
+        if cache_path.exists():
+            return cache_path.read_text(encoding="utf-8", errors="ignore"), "cache"
+    text = _request_summary(query, page)
+    if _cache_enabled():
+        cache_path = _cache_path(query, page)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(text, encoding="utf-8")
+    return text, "fetch"
 
 
 def parse_summary_text(text: str) -> List[EuctrSummaryRow]:
@@ -206,27 +252,73 @@ def _build_classification_text(row: EuctrSummaryRow) -> str:
     return " ".join([p for p in parts if p])
 
 
+def _extract_nct_ids(text: str) -> List[str]:
+    return _uniq([token.upper() for token in NCT_RE.findall(text or "")])
+
+
+def _normalize_phase(text: str) -> str:
+    if not text:
+        return "NA"
+    match = PHASE_RE.search(text)
+    if not match:
+        return "NA"
+    token = match.group(1).upper()
+    mapping = {
+        "I": "PHASE1",
+        "II": "PHASE2",
+        "III": "PHASE3",
+        "IV": "PHASE4",
+        "1": "PHASE1",
+        "2": "PHASE2",
+        "3": "PHASE3",
+        "4": "PHASE4",
+    }
+    return mapping.get(token, "NA")
+
+
 def iter_euctr_summaries(
     query: str,
     *,
     max_trials: Optional[int] = None,
     max_pages: Optional[int] = None,
     sleep_seconds: float = 0.2,
+    progress: Optional[bool] = None,
 ) -> Iterable[EuctrSummaryRow]:
     page = 1
     yielded = 0
+    seen_ids: set[str] = set()
+    no_new_streak = 0
+    max_no_new_pages_raw = os.getenv("EUCTR_STOP_IF_NO_NEW_PAGES", "").strip()
+    max_no_new_pages = int(max_no_new_pages_raw) if max_no_new_pages_raw else None
+    if progress is None:
+        progress = _progress_enabled()
     while True:
         if max_pages is not None and page > max_pages:
             break
-        text = _request_summary(query, page)
+        if max_no_new_pages is not None and no_new_streak >= max_no_new_pages:
+            if progress:
+                print(f"[EUCTR] {query} stopping after {no_new_streak} pages with no new ids")
+            break
+        text, source = _get_summary_text(query, page)
         rows = parse_summary_text(text)
+        if progress:
+            print(f"[EUCTR] {query} page {page} ({source}) rows={len(rows)}")
         if not rows:
             break
+        new_ids = 0
         for row in rows:
+            if row.eudract_number and row.eudract_number not in seen_ids:
+                seen_ids.add(row.eudract_number)
+                new_ids += 1
             yield row
             yielded += 1
             if max_trials is not None and yielded >= max_trials:
                 return
+        if max_no_new_pages is not None:
+            if new_ids == 0:
+                no_new_streak += 1
+            else:
+                no_new_streak = 0
         page += 1
         if sleep_seconds > 0:
             time.sleep(sleep_seconds)
@@ -241,26 +333,57 @@ def fetch_trials_euctr_pdac(
 ) -> List[Dict[str, str]]:
     terms = _uniq(query_terms or DEFAULT_EUCTR_QUERY_TERMS)
     merged: Dict[str, EuctrSummaryRow] = {}
+    max_workers = int(os.getenv("EUCTR_MAX_WORKERS", "1"))
 
-    for term in terms:
-        for row in iter_euctr_summaries(
-            term,
-            max_trials=max_trials,
-            max_pages=max_pages,
-            sleep_seconds=sleep_seconds,
-        ):
-            key = _clean(row.eudract_number)
-            if not key:
-                continue
-            existing = merged.get(key)
-            if not existing:
-                merged[key] = row
-                continue
-            existing.medical_conditions = _uniq(existing.medical_conditions + row.medical_conditions)
-            existing.diseases = _uniq(existing.diseases + row.diseases)
-            existing.trial_protocols = _uniq(existing.trial_protocols + row.trial_protocols)
-            if not existing.link:
-                existing.link = row.link
+    def _collect_term_rows(term: str) -> List[EuctrSummaryRow]:
+        return list(
+            iter_euctr_summaries(
+                term,
+                max_trials=max_trials,
+                max_pages=max_pages,
+                sleep_seconds=sleep_seconds,
+            )
+        )
+
+    if max_workers > 1 and len(terms) > 1:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(_collect_term_rows, term): term for term in terms}
+            for future in as_completed(futures):
+                for row in future.result():
+                    key = _clean(row.eudract_number)
+                    if not key:
+                        continue
+                    existing = merged.get(key)
+                    if not existing:
+                        merged[key] = row
+                        continue
+                    existing.medical_conditions = _uniq(existing.medical_conditions + row.medical_conditions)
+                    existing.diseases = _uniq(existing.diseases + row.diseases)
+                    existing.trial_protocols = _uniq(existing.trial_protocols + row.trial_protocols)
+                    if not existing.link:
+                        existing.link = row.link
+    else:
+        for term in terms:
+            for row in iter_euctr_summaries(
+                term,
+                max_trials=max_trials,
+                max_pages=max_pages,
+                sleep_seconds=sleep_seconds,
+            ):
+                key = _clean(row.eudract_number)
+                if not key:
+                    continue
+                existing = merged.get(key)
+                if not existing:
+                    merged[key] = row
+                    continue
+                existing.medical_conditions = _uniq(existing.medical_conditions + row.medical_conditions)
+                existing.diseases = _uniq(existing.diseases + row.diseases)
+                existing.trial_protocols = _uniq(existing.trial_protocols + row.trial_protocols)
+                if not existing.link:
+                    existing.link = row.link
 
     normalized: List[Dict[str, str]] = []
     for row in merged.values():
@@ -270,7 +393,11 @@ def fetch_trials_euctr_pdac(
 
         classification = classify_study("UNKNOWN", classification_text)
         match_reason = pdac_match_reason(classification_text)
+        nct_tokens = _extract_nct_ids(" ".join([row.sponsor_protocol_number, row.full_title] + row.trial_protocols))
+        secondary_id = ", ".join(nct_tokens)
+        phase_text = " ".join([row.full_title, " ".join(row.trial_protocols)])
         status = _normalize_status(row.trial_protocols)
+        phase = _normalize_phase(phase_text)
         trial_link = row.link or f"https://www.clinicaltrialsregister.eu/ctr-search/search?query=eudract_number:{row.eudract_number}"
 
         brief_summary_parts = []
@@ -286,11 +413,11 @@ def fetch_trials_euctr_pdac(
             {
                 "nct_id": row.eudract_number,
                 "source": "euctr",
-                "secondary_id": "",
+                "secondary_id": secondary_id,
                 "trial_link": trial_link,
                 "title": row.full_title,
                 "study_type": "UNKNOWN",
-                "phase": "NA",
+                "phase": phase,
                 "status": status,
                 "sponsor": row.sponsor_name or "Unknown",
                 "pdac_match_reason": match_reason,

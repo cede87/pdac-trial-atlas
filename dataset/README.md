@@ -1,4 +1,4 @@
-# PDAC Trial Atlas dataset (v1.4)
+# PDAC Trial Atlas dataset (v1.5)
 
 This dataset is a curated, PDAC-focused view of clinical trials enriched with normalization, tagging,
 and cross-registry correlation to support exploration and lightweight analysis.
@@ -11,16 +11,18 @@ and cross-registry correlation to support exploration and lightweight analysis.
 ## Data sources
 - ClinicalTrials.gov (USA/international registry) public portal via its public API endpoints.
 - CTIS (EU Clinical Trials Information System) via programmatic retrieval.
+- EUCTR (legacy EU Clinical Trials Register / EudraCT) via public search export.
 
 Notes:
 - CTIS coverage is primarily for EU/EEA trials submitted under EU CTR (public CTIS portal states coverage from 31 Jan 2022 onward).
-- Historical EU trials in the legacy EudraCT register are not included in this export.
+- EUCTR provides historical EU trials from the legacy EudraCT register.
 
 ## Number of trials
-- Total rows: 2486
+- Total rows: 2912
 
 - By source:
 - clinicaltrials.gov: 2332
+- euctr: 426
 - ctis: 119
 - clinicaltrials.gov+ctis: 35
 
@@ -32,9 +34,9 @@ Notes:
 ## Field descriptions
 | Column | Type | Description |
 |---|---|---|
-| nct_id | string | Primary trial identifier (NCT ID for ClinicalTrials.gov rows, EU CT number for CTIS-native rows). |
-| source | string | Source registry: clinicaltrials.gov, ctis, or clinicaltrials.gov+ctis. |
-| secondary_id | string | Secondary identifiers (comma-separated) when available. |
+| nct_id | string | Primary trial identifier (NCT ID for ClinicalTrials.gov rows, EU CT number for CTIS-native rows, EudraCT number for EUCTR-native rows). |
+| source | string | Source registry: clinicaltrials.gov, ctis, euctr, clinicaltrials.gov+ctis, clinicaltrials.gov+euctr, clinicaltrials.gov+ctis+euctr. |
+| secondary_id | string | Secondary identifiers (comma-separated) when available (e.g., NCT IDs from EU registries). |
 | trial_link | string | Source trial URL(s), separated by ' | ' when merged. |
 | title | string | Trial title. |
 | study_type | string | Study type (e.g., INTERVENTIONAL, OBSERVATIONAL). |
@@ -74,15 +76,15 @@ Notes:
 - PDAC inclusion is based on heuristic string matching and normalization rules; false positives/negatives are possible.
 - Missing values are stored as `NA`.
 - Publications/`has_results` are best-effort and may lag or miss papers not linked to an NCT identifier.
-- CTIS records may not always correlate to an NCT ID; merging only occurs when an explicit link is present.
+- CTIS/EUCTR records may not always correlate to an NCT ID; merging only occurs when an explicit link is present.
 
 ## How the data was generated
 1. Run the ingestion pipeline to build/update the local SQLite database (`pdac_trials.db`).
-2. Retrieve PDAC-focused studies from ClinicalTrials.gov and CTIS.
-3. Apply de-duplication/merge when CTIS records reference an NCT identifier.
+2. Retrieve PDAC-focused studies from ClinicalTrials.gov, CTIS, and EUCTR.
+3. Apply de-duplication/merge when CTIS/EUCTR records reference an NCT identifier.
 4. Apply normalization and tagging.
 5. Export final dataset into CSV and Parquet with schema metadata.
-6. Generation timestamp (UTC): 2026-02-20 11:22:48Z
+6. Generation timestamp (UTC): 2026-02-22 20:20:51Z
 
 ## License
 This dataset is released under CC BY 4.0. See `LICENSE-CC-BY-4.0.txt`.

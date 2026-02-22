@@ -9,7 +9,7 @@ if [[ ! -x "$PYTHON_BIN" ]]; then
   PYTHON_BIN="python3"
 fi
 
-DATASET_VERSION="${DATASET_VERSION:-1.4}"
+DATASET_VERSION="${DATASET_VERSION:-1.5}"
 RUN_FULL_INDEX="${RUN_FULL_INDEX:-1}"
 CLEAR_PUBMED_CACHE="${CLEAR_PUBMED_CACHE:-0}"
 RUN_TESTS="${RUN_TESTS:-1}"
@@ -95,9 +95,9 @@ df = pd.read_csv(csv_path, dtype=str).fillna("NA")
 df.to_parquet(parquet_path, index=False)
 
 known_descriptions = {
-    "nct_id": "Primary trial identifier (NCT ID for ClinicalTrials.gov rows, EU CT number for CTIS-native rows).",
-    "source": "Source registry: clinicaltrials.gov, ctis, or clinicaltrials.gov+ctis.",
-    "secondary_id": "Secondary identifiers (comma-separated) when available.",
+    "nct_id": "Primary trial identifier (NCT ID for ClinicalTrials.gov rows, EU CT number for CTIS-native rows, EudraCT number for EUCTR-native rows).",
+    "source": "Source registry: clinicaltrials.gov, ctis, euctr, clinicaltrials.gov+ctis, clinicaltrials.gov+euctr, clinicaltrials.gov+ctis+euctr.",
+    "secondary_id": "Secondary identifiers (comma-separated) when available (e.g., NCT IDs from EU registries).",
     "trial_link": "Source trial URL(s), separated by ' | ' when merged.",
     "title": "Trial title.",
     "study_type": "Study type (e.g., INTERVENTIONAL, OBSERVATIONAL).",
