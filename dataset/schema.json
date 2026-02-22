@@ -1,7 +1,7 @@
 {
   "name": "PDAC Trial Atlas dataset",
-  "version": "1.4",
-  "generated_at_utc": "2026-02-20 13:03:16Z",
+  "version": "1.5",
+  "generated_at_utc": "2026-02-22 20:19:14Z",
   "files": {
     "pdac-trials.csv": {
       "path": "pdac-trials.csv",
@@ -9,29 +9,29 @@
       "encoding": "UTF-8",
       "header": true,
       "delimiter": ",",
-      "rows": 2486
+      "rows": 2912
     },
     "pdac-trials.parquet": {
       "path": "pdac-trials.parquet",
       "format": "parquet",
-      "rows": 2486
+      "rows": 2912
     }
   },
   "columns": [
     {
       "name": "nct_id",
       "type": "string",
-      "description": "Primary trial identifier (NCT ID for ClinicalTrials.gov rows, EU CT number for CTIS-native rows)."
+      "description": "Primary trial identifier (NCT ID for ClinicalTrials.gov rows, EU CT number for CTIS-native rows, EudraCT number for EUCTR-native rows)."
     },
     {
       "name": "source",
       "type": "string",
-      "description": "Source registry: clinicaltrials.gov, ctis, or clinicaltrials.gov+ctis."
+      "description": "Source registry: clinicaltrials.gov, ctis, euctr, clinicaltrials.gov+ctis, clinicaltrials.gov+euctr, clinicaltrials.gov+ctis+euctr."
     },
     {
       "name": "secondary_id",
       "type": "string",
-      "description": "Secondary identifiers (comma-separated) when available."
+      "description": "Secondary identifiers (comma-separated) when available (e.g., NCT IDs from EU registries)."
     },
     {
       "name": "trial_link",
