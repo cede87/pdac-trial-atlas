@@ -10,6 +10,7 @@ used by other ingestion sources.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 import re
 import time
@@ -25,10 +26,6 @@ EUCTR_SUMMARY_URL = "https://www.clinicaltrialsregister.eu/ctr-search/rest/downl
 DEFAULT_EUCTR_QUERY_TERMS = [
     "pancreatic",
     "pancreas",
-    "pancreatic cancer",
-    "pdac",
-    "pancreatic adenocarcinoma",
-    "ductal adenocarcinoma",
 ]
 
 REQUEST_TIMEOUT = 45
@@ -212,24 +209,117 @@ def iter_euctr_summaries(
     max_trials: Optional[int] = None,
     max_pages: Optional[int] = None,
     sleep_seconds: float = 0.2,
+    progress_every_pages: int = 1,
+    stall_seconds: Optional[float] = None,
+    max_empty_pages: Optional[int] = None,
+    start_page: int = 1,
+    on_page: Optional[callable] = None,
 ) -> Iterable[EuctrSummaryRow]:
-    page = 1
+    page = start_page
     yielded = 0
+    last_progress = time.monotonic()
+    empty_pages = 0
     while True:
         if max_pages is not None and page > max_pages:
             break
         text = _request_summary(query, page)
         rows = parse_summary_text(text)
+        if progress_every_pages and page % progress_every_pages == 0:
+            print(
+                f"[EUCTR] term='{query}' page {page}: rows={len(rows)} total={yielded}",
+                flush=True,
+            )
+        candidate_count = 0
+        if rows:
+            candidate_count = 0
+            for row in rows:
+                if _is_pdac_candidate(_build_classification_text(row)):
+                    candidate_count += 1
+            if candidate_count == 0:
+                empty_pages += 1
+            else:
+                empty_pages = 0
+        else:
+            empty_pages += 1
+
+        if on_page:
+            on_page(
+                term=query,
+                page=page,
+                rows=len(rows),
+                candidate_count=candidate_count,
+                next_page=(page + 1),
+            )
+
+        if max_empty_pages is not None and empty_pages >= max_empty_pages:
+            print(
+                f"[EUCTR] autostop: {empty_pages} consecutive pages with 0 PDAC candidates.",
+                flush=True,
+            )
+            return
+
         if not rows:
             break
         for row in rows:
             yield row
             yielded += 1
+            last_progress = time.monotonic()
             if max_trials is not None and yielded >= max_trials:
                 return
         page += 1
         if sleep_seconds > 0:
             time.sleep(sleep_seconds)
+        if stall_seconds is not None and (time.monotonic() - last_progress) > stall_seconds:
+            print(
+                f"[EUCTR] autostop: no new rows for {int(stall_seconds)}s.",
+                flush=True,
+            )
+            return
+
+
+def _merge_summary_rows(existing: EuctrSummaryRow, row: EuctrSummaryRow) -> None:
+    existing.medical_conditions = _uniq(existing.medical_conditions + row.medical_conditions)
+    existing.diseases = _uniq(existing.diseases + row.diseases)
+    existing.trial_protocols = _uniq(existing.trial_protocols + row.trial_protocols)
+    if not existing.link:
+        existing.link = row.link
+
+
+def _collect_term_rows(
+    term: str,
+    *,
+    max_trials: Optional[int],
+    max_pages: Optional[int],
+    sleep_seconds: float,
+    progress_every_pages: int,
+    stall_seconds: Optional[float],
+    max_empty_pages: Optional[int],
+    start_page: int,
+    on_page: Optional[callable],
+) -> Dict[str, EuctrSummaryRow]:
+    print(f"[EUCTR] term='{term}' start", flush=True)
+    term_rows: Dict[str, EuctrSummaryRow] = {}
+    for row in iter_euctr_summaries(
+        term,
+        max_trials=max_trials,
+        max_pages=max_pages,
+        sleep_seconds=sleep_seconds,
+        progress_every_pages=progress_every_pages,
+        stall_seconds=stall_seconds,
+        max_empty_pages=max_empty_pages,
+        start_page=start_page,
+        on_page=on_page,
+    ):
+        key = _clean(row.eudract_number)
+        if not key:
+            continue
+        existing = term_rows.get(key)
+        if not existing:
+            term_rows[key] = row
+        else:
+            _merge_summary_rows(existing, row)
+    print(f"[EUCTR] term='{term}' done: {len(term_rows)} unique", flush=True)
+    return term_rows
 
 
 def fetch_trials_euctr_pdac(
@@ -238,31 +328,93 @@ def fetch_trials_euctr_pdac(
     max_pages: Optional[int] = None,
     query_terms: Optional[List[str]] = None,
     sleep_seconds: float = 0.2,
+    workers: int = 3,
+    progress_every_pages: int = 1,
+    stall_seconds: Optional[float] = None,
+    max_empty_pages: Optional[int] = None,
+    start_pages: Optional[Dict[str, int]] = None,
+    on_page: Optional[callable] = None,
 ) -> List[Dict[str, str]]:
+    return list(
+        iter_trials_euctr_pdac(
+            max_trials=max_trials,
+            max_pages=max_pages,
+            query_terms=query_terms,
+            sleep_seconds=sleep_seconds,
+            workers=workers,
+            progress_every_pages=progress_every_pages,
+            stall_seconds=stall_seconds,
+            max_empty_pages=max_empty_pages,
+            start_pages=start_pages,
+            on_page=on_page,
+        )
+    )
+
+
+def iter_trials_euctr_pdac(
+    *,
+    max_trials: Optional[int] = None,
+    max_pages: Optional[int] = None,
+    query_terms: Optional[List[str]] = None,
+    sleep_seconds: float = 0.2,
+    workers: int = 3,
+    progress_every_pages: int = 1,
+    stall_seconds: Optional[float] = None,
+    max_empty_pages: Optional[int] = None,
+    start_pages: Optional[Dict[str, int]] = None,
+    on_page: Optional[callable] = None,
+) -> Iterable[Dict[str, str]]:
     terms = _uniq(query_terms or DEFAULT_EUCTR_QUERY_TERMS)
     merged: Dict[str, EuctrSummaryRow] = {}
 
-    for term in terms:
-        for row in iter_euctr_summaries(
-            term,
-            max_trials=max_trials,
-            max_pages=max_pages,
-            sleep_seconds=sleep_seconds,
-        ):
-            key = _clean(row.eudract_number)
-            if not key:
-                continue
-            existing = merged.get(key)
-            if not existing:
-                merged[key] = row
-                continue
-            existing.medical_conditions = _uniq(existing.medical_conditions + row.medical_conditions)
-            existing.diseases = _uniq(existing.diseases + row.diseases)
-            existing.trial_protocols = _uniq(existing.trial_protocols + row.trial_protocols)
-            if not existing.link:
-                existing.link = row.link
+    if workers <= 1 or len(terms) <= 1:
+        for term in terms:
+            term_rows = _collect_term_rows(
+                term,
+                max_trials=max_trials,
+                max_pages=max_pages,
+                sleep_seconds=sleep_seconds,
+                progress_every_pages=progress_every_pages,
+                stall_seconds=stall_seconds,
+                max_empty_pages=max_empty_pages,
+                start_page=(start_pages or {}).get(term, 1),
+                on_page=on_page,
+            )
+            for key, row in term_rows.items():
+                existing = merged.get(key)
+                if not existing:
+                    merged[key] = row
+                else:
+                    _merge_summary_rows(existing, row)
+    else:
+        executor = ThreadPoolExecutor(max_workers=workers)
+        futures = {
+            executor.submit(
+                _collect_term_rows,
+                term,
+                max_trials=max_trials,
+                max_pages=max_pages,
+                sleep_seconds=sleep_seconds,
+                progress_every_pages=progress_every_pages,
+                stall_seconds=stall_seconds,
+                max_empty_pages=max_empty_pages,
+                start_page=(start_pages or {}).get(term, 1),
+                on_page=on_page,
+            ): term
+            for term in terms
+        }
+        try:
+            for future in as_completed(futures):
+                term_rows = future.result()
+                for key, row in term_rows.items():
+                    existing = merged.get(key)
+                    if not existing:
+                        merged[key] = row
+                    else:
+                        _merge_summary_rows(existing, row)
+        finally:
+            executor.shutdown(wait=True, cancel_futures=True)
 
-    normalized: List[Dict[str, str]] = []
     for row in merged.values():
         classification_text = _build_classification_text(row)
         if not _is_pdac_candidate(classification_text):
@@ -282,38 +434,34 @@ def fetch_trials_euctr_pdac(
             brief_summary_parts.append(f"Trial Protocols: {' | '.join(row.trial_protocols)}")
         brief_summary = " | ".join(brief_summary_parts)
 
-        normalized.append(
-            {
-                "nct_id": row.eudract_number,
-                "source": "euctr",
-                "secondary_id": "",
-                "trial_link": trial_link,
-                "title": row.full_title,
-                "study_type": "UNKNOWN",
-                "phase": "NA",
-                "status": status,
-                "sponsor": row.sponsor_name or "Unknown",
-                "pdac_match_reason": match_reason,
-                "study_design": classification["study_design"],
-                "therapeutic_class": classification["therapeutic_class"],
-                "focus_tags": ",".join(classification["focus"]) if classification["focus"] else "",
-                "admission_date": row.start_date,
-                "last_update_date": "",
-                "primary_completion_date": "",
-                "has_results": "no",
-                "results_last_update": "",
-                "pubmed_links": "",
-                "conditions": " | ".join(_uniq(row.medical_conditions + row.diseases)),
-                "interventions": "",
-                "intervention_types": "",
-                "primary_outcomes": "",
-                "secondary_outcomes": "",
-                "inclusion_criteria": "",
-                "exclusion_criteria": "",
-                "locations": "",
-                "brief_summary": brief_summary,
-                "detailed_description": "",
-            }
-        )
-
-    return normalized
+        yield {
+            "nct_id": row.eudract_number,
+            "source": "euctr",
+            "secondary_id": "",
+            "trial_link": trial_link,
+            "title": row.full_title,
+            "study_type": "UNKNOWN",
+            "phase": "NA",
+            "status": status,
+            "sponsor": row.sponsor_name or "Unknown",
+            "pdac_match_reason": match_reason,
+            "study_design": classification["study_design"],
+            "therapeutic_class": classification["therapeutic_class"],
+            "focus_tags": ",".join(classification["focus"]) if classification["focus"] else "",
+            "admission_date": row.start_date,
+            "last_update_date": "",
+            "primary_completion_date": "",
+            "has_results": "no",
+            "results_last_update": "",
+            "pubmed_links": "",
+            "conditions": " | ".join(_uniq(row.medical_conditions + row.diseases)),
+            "interventions": "",
+            "intervention_types": "",
+            "primary_outcomes": "",
+            "secondary_outcomes": "",
+            "inclusion_criteria": "",
+            "exclusion_criteria": "",
+            "locations": "",
+            "brief_summary": brief_summary,
+            "detailed_description": "",
+        }

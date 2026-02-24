@@ -10,6 +10,7 @@ All semantic classification is done upstream (ingest modules).
 import os
 import re
 import sqlite3
+import json
 from datetime import datetime, date, timedelta, timezone
 from difflib import SequenceMatcher
 import xml.etree.ElementTree as ET
@@ -18,9 +19,9 @@ import numpy as np
 import pandas as pd
 import requests
 from typing import Optional
-from ingest.clinicaltrials import fetch_trials_pancreas, _fetch_pubmed_links_by_nct
-from ingest.ctis import fetch_trials_ctis_pdac
-from ingest.euctr import fetch_trials_euctr_pdac
+from ingest.clinicaltrials import fetch_trials_pancreas, iter_trials_pancreas, _fetch_pubmed_links_by_nct
+from ingest.ctis import fetch_trials_ctis_pdac, iter_trials_ctis_pdac, DEFAULT_CTIS_PDAC_QUERY_TERMS
+from ingest.euctr import fetch_trials_euctr_pdac, iter_trials_euctr_pdac, DEFAULT_EUCTR_QUERY_TERMS
 from db.session import SessionLocal, init_db
 from db.models import ClinicalTrial, ClinicalTrialDetails, ClinicalTrialPublication
 from sqlalchemy import text
@@ -37,6 +38,7 @@ PUBLICATION_METHOD_CONFIDENCE = {
     "title_fuzzy": 72,
 }
 DEFAULT_FULL_MATCH_MIN_CONFIDENCE = 80
+CHECKPOINT_TABLE = "ingest_checkpoints"
 
 
 def as_na(value):
@@ -48,6 +50,136 @@ def as_na(value):
     if isinstance(value, str) and not value.strip():
         return "NA"
     return value
+
+
+def ensure_checkpoint_table(session) -> None:
+    session.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS {CHECKPOINT_TABLE} (
+                source TEXT NOT NULL,
+                scope TEXT NOT NULL,
+                data TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (source, scope)
+            )
+            """
+        )
+    )
+    session.commit()
+
+
+def _checkpoint_key(source: str, scope: str) -> tuple[str, str]:
+    return (source.strip().lower(), scope.strip().lower())
+
+
+def get_checkpoint(session, source: str, scope: str) -> dict:
+    source_key, scope_key = _checkpoint_key(source, scope)
+    row = session.execute(
+        text(
+            f"SELECT data FROM {CHECKPOINT_TABLE} WHERE source = :source AND scope = :scope"
+        ),
+        {"source": source_key, "scope": scope_key},
+    ).fetchone()
+    if not row:
+        return {}
+    try:
+        return json.loads(row[0])
+    except Exception:
+        return {}
+
+
+def set_checkpoint(session, source: str, scope: str, data: dict) -> None:
+    source_key, scope_key = _checkpoint_key(source, scope)
+    session.execute(
+        text(
+            f"""
+            INSERT INTO {CHECKPOINT_TABLE} (source, scope, data, updated_at)
+            VALUES (:source, :scope, :data, :updated_at)
+            ON CONFLICT(source, scope) DO UPDATE SET
+                data = excluded.data,
+                updated_at = excluded.updated_at
+            """
+        ),
+        {
+            "source": source_key,
+            "scope": scope_key,
+            "data": json.dumps(data, ensure_ascii=True),
+            "updated_at": datetime.utcnow().isoformat(),
+        },
+    )
+    session.commit()
+
+
+def clear_checkpoints(session) -> None:
+    session.execute(text(f"DELETE FROM {CHECKPOINT_TABLE}"))
+    session.commit()
+
+
+def upsert_trial(session, s: dict) -> tuple[bool, bool]:
+    """
+    Upsert a single normalized study into ClinicalTrial + ClinicalTrialDetails.
+    Returns (inserted, updated).
+    """
+    nct_id = s["nct_id"]
+    trial = session.get(ClinicalTrial, nct_id)
+    inserted = False
+    updated = False
+    if not trial:
+        trial = ClinicalTrial(nct_id=nct_id)
+        session.add(trial)
+        inserted = True
+    else:
+        updated = True
+
+    source = (s.get("source") or "").strip().lower()
+    trial.source = as_na(source if source else "clinicaltrials.gov")
+    trial.secondary_id = as_na(s.get("secondary_id"))
+    trial.trial_link = as_na(
+        s.get("trial_link")
+        or (f"https://clinicaltrials.gov/study/{nct_id}" if nct_id.startswith("NCT") else "")
+    )
+    trial.title = as_na(s.get("title"))
+    trial.study_type = as_na(s.get("study_type"))
+    trial.phase = as_na(s.get("phase"))
+    trial.status = as_na(s.get("status"))
+    trial.sponsor = as_na(s.get("sponsor"))
+    trial.admission_date = as_na(s.get("admission_date"))
+    trial.last_update_date = as_na(s.get("last_update_date"))
+    trial.primary_completion_date = as_na(s.get("primary_completion_date"))
+    trial.has_results = as_na(s.get("has_results"))
+    trial.results_last_update = as_na(s.get("results_last_update"))
+    trial.pubmed_links = as_na(s.get("pubmed_links"))
+    trial.intervention_types = as_na(s.get("intervention_types"))
+    if "publication_date" in s:
+        trial.publication_date = as_na(s.get("publication_date"))
+    if "publication_lag_days" in s:
+        trial.publication_lag_days = s.get("publication_lag_days")
+    if "evidence_strength" in s:
+        trial.evidence_strength = as_na(s.get("evidence_strength"))
+    if "dead_end" in s:
+        trial.dead_end = as_na(s.get("dead_end"))
+
+    trial.study_design = as_na(s.get("study_design"))
+    trial.therapeutic_class = as_na(s.get("therapeutic_class"))
+    trial.focus_tags = as_na(s.get("focus_tags"))
+    trial.pdac_match_reason = as_na(s.get("pdac_match_reason"))
+
+    details = session.get(ClinicalTrialDetails, nct_id)
+    if not details:
+        details = ClinicalTrialDetails(nct_id=nct_id)
+        session.add(details)
+    details.conditions = as_na(s.get("conditions"))
+    details.interventions = as_na(s.get("interventions"))
+    details.primary_outcomes = as_na(s.get("primary_outcomes"))
+    details.secondary_outcomes = as_na(s.get("secondary_outcomes"))
+    details.inclusion_criteria = as_na(s.get("inclusion_criteria"))
+    details.exclusion_criteria = as_na(s.get("exclusion_criteria"))
+    details.locations = as_na(s.get("locations"))
+    details.brief_summary = as_na(s.get("brief_summary"))
+    details.detailed_description = as_na(s.get("detailed_description"))
+
+    return inserted, updated
 
 
 def _clean(value) -> str:
@@ -1648,13 +1780,60 @@ def run():
     ensure_columns(session)
     ensure_details_table_and_backfill(session)
     ensure_publications_table(session)
+    ensure_checkpoint_table(session)
+
+    resume_enabled = os.getenv("INGEST_RESUME", "1").strip().lower() not in {"0", "false", "no"}
+    if os.getenv("INGEST_RESET_CHECKPOINTS", "0").strip().lower() in {"1", "true", "yes"}:
+        clear_checkpoints(session)
+        resume_enabled = False
+    commit_every = int(os.getenv("INGEST_COMMIT_EVERY", "200"))
+
+    inserted = 0
+    updated = 0
+    ctgov_count = 0
+    ctis_count = 0
+    euctr_count = 0
 
     print("Fetching PDAC-related trials from ClinicalTrials.gov ...")
-    ctgov_studies = fetch_trials_pancreas()
+    ctgov_progress_every = int(os.getenv("CTGOV_PROGRESS_EVERY", "1"))
+    ctgov_max_empty_pages = os.getenv("CTGOV_MAX_EMPTY_PAGES")
+    ctgov_stall_seconds = os.getenv("CTGOV_STALL_SECONDS")
+    ctgov_checkpoint = get_checkpoint(session, "ctgov", "default") if resume_enabled else {}
+    ctgov_start_token = ctgov_checkpoint.get("next_page_token")
+
+    def _ctgov_on_page(page: int, next_page_token: Optional[str], fetched: int, kept: int) -> None:
+        set_checkpoint(
+            session,
+            "ctgov",
+            "default",
+            {
+                "page": page,
+                "next_page_token": next_page_token or "",
+                "fetched": fetched,
+                "kept": kept,
+                "updated_at": datetime.utcnow().isoformat(),
+            },
+        )
+
+    processed = 0
+    for study in iter_trials_pancreas(
+        progress_every_pages=ctgov_progress_every,
+        max_empty_pages=int(ctgov_max_empty_pages) if ctgov_max_empty_pages else None,
+        stall_seconds=float(ctgov_stall_seconds) if ctgov_stall_seconds else None,
+        start_page_token=ctgov_start_token,
+        on_page=_ctgov_on_page,
+    ):
+        ins, upd = upsert_trial(session, study)
+        inserted += int(ins)
+        updated += int(upd)
+        ctgov_count += 1
+        processed += 1
+        if commit_every and processed % commit_every == 0:
+            session.commit()
+    session.commit()
 
     include_ctis = os.getenv("INGEST_CTIS", "1").strip().lower() not in {"0", "false", "no"}
     include_euctr = os.getenv("INGEST_EUCTR", "1").strip().lower() not in {"0", "false", "no"}
-    ctis_studies = []
     if include_ctis:
         print("Fetching PDAC-related trials from CTIS (EU) ...")
         ctis_max_trials = os.getenv("CTIS_MAX_TRIALS")
@@ -1667,14 +1846,54 @@ def run():
             else None
         )
         ctis_page_size = int(os.getenv("CTIS_PAGE_SIZE", "100"))
-        ctis_studies = fetch_trials_ctis_pdac(
+        ctis_workers = int(os.getenv("CTIS_DETAIL_WORKERS", "4"))
+        ctis_progress_every_pages = int(os.getenv("CTIS_PROGRESS_EVERY_PAGES", "1"))
+        ctis_progress_every_details = int(os.getenv("CTIS_PROGRESS_EVERY_DETAILS", "25"))
+        ctis_stall_seconds = os.getenv("CTIS_STALL_SECONDS")
+        ctis_start_pages = {}
+        ctis_terms = ctis_query_terms or list(DEFAULT_CTIS_PDAC_QUERY_TERMS)
+        if resume_enabled:
+            for term in ctis_terms:
+                checkpoint = get_checkpoint(session, "ctis", term)
+                if checkpoint.get("next_page"):
+                    ctis_start_pages[term] = int(checkpoint["next_page"])
+
+        def _ctis_on_page(term: str, page: int, next_page: bool) -> None:
+            set_checkpoint(
+                session,
+                "ctis",
+                term,
+                {
+                    "page": page,
+                    "next_page": page + 1,
+                    "has_next": bool(next_page),
+                    "updated_at": datetime.utcnow().isoformat(),
+                },
+            )
+
+        processed = 0
+        for study in iter_trials_ctis_pdac(
             max_trials=int(ctis_max_trials) if ctis_max_trials else None,
             max_overview_records=int(ctis_max_overview) if ctis_max_overview else None,
             medical_condition=ctis_medical_condition,
             query_terms=ctis_query_terms,
             page_size=ctis_page_size,
-        )
-    euctr_studies = []
+            detail_workers=ctis_workers,
+            progress_every_pages=ctis_progress_every_pages,
+            progress_every_details=ctis_progress_every_details,
+            stall_seconds=float(ctis_stall_seconds) if ctis_stall_seconds else None,
+            start_pages=ctis_start_pages,
+            on_page=_ctis_on_page,
+        ):
+            ins, upd = upsert_trial(session, study)
+            inserted += int(ins)
+            updated += int(upd)
+            ctis_count += 1
+            processed += 1
+            if commit_every and processed % commit_every == 0:
+                session.commit()
+        session.commit()
+
     if include_euctr:
         print("Fetching PDAC-related trials from EUCTR (legacy EU register) ...")
         euctr_max_trials = os.getenv("EUCTR_MAX_TRIALS")
@@ -1686,83 +1905,53 @@ def run():
             if euctr_query_terms_raw
             else None
         )
-        euctr_studies = fetch_trials_euctr_pdac(
+        euctr_workers = int(os.getenv("EUCTR_WORKERS", "3"))
+        euctr_progress_every_pages = int(os.getenv("EUCTR_PROGRESS_EVERY_PAGES", "1"))
+        euctr_stall_seconds = os.getenv("EUCTR_STALL_SECONDS")
+        euctr_max_empty_pages = os.getenv("EUCTR_MAX_EMPTY_PAGES")
+        euctr_start_pages = {}
+        euctr_terms = euctr_query_terms or list(DEFAULT_EUCTR_QUERY_TERMS)
+        if resume_enabled:
+            for term in euctr_terms:
+                checkpoint = get_checkpoint(session, "euctr", term)
+                if checkpoint.get("next_page"):
+                    euctr_start_pages[term] = int(checkpoint["next_page"])
+
+        def _euctr_on_page(term: str, page: int, rows: int, candidate_count: int, next_page: int) -> None:
+            set_checkpoint(
+                session,
+                "euctr",
+                term,
+                {
+                    "page": page,
+                    "next_page": next_page,
+                    "rows": rows,
+                    "candidate_count": candidate_count,
+                    "updated_at": datetime.utcnow().isoformat(),
+                },
+            )
+
+        processed = 0
+        for study in iter_trials_euctr_pdac(
             max_trials=int(euctr_max_trials) if euctr_max_trials else None,
             max_pages=int(euctr_max_pages) if euctr_max_pages else None,
             query_terms=euctr_query_terms,
             sleep_seconds=euctr_sleep,
-        )
-
-    studies = ctgov_studies + ctis_studies + euctr_studies
-
-    inserted = 0
-    updated = 0
-
-    for s in studies:
-        nct_id = s["nct_id"]
-
-        trial = session.get(ClinicalTrial, nct_id)
-        if not trial:
-            trial = ClinicalTrial(nct_id=nct_id)
-            session.add(trial)
-            inserted += 1
-        else:
-            updated += 1
-
-        # -----------------------------
-        # Core fields
-        # -----------------------------
-        source = (s.get("source") or "").strip().lower()
-        trial.source = as_na(source if source else "clinicaltrials.gov")
-        trial.secondary_id = as_na(s.get("secondary_id"))
-        trial.trial_link = as_na(
-            s.get("trial_link")
-            or (f"https://clinicaltrials.gov/study/{nct_id}" if nct_id.startswith("NCT") else "")
-        )
-        trial.title = as_na(s.get("title"))
-        trial.study_type = as_na(s.get("study_type"))
-        trial.phase = as_na(s.get("phase"))
-        trial.status = as_na(s.get("status"))
-        trial.sponsor = as_na(s.get("sponsor"))
-        trial.admission_date = as_na(s.get("admission_date"))
-        trial.last_update_date = as_na(s.get("last_update_date"))
-        trial.primary_completion_date = as_na(s.get("primary_completion_date"))
-        trial.has_results = as_na(s.get("has_results"))
-        trial.results_last_update = as_na(s.get("results_last_update"))
-        trial.pubmed_links = as_na(s.get("pubmed_links"))
-        trial.intervention_types = as_na(s.get("intervention_types"))
-        if "publication_date" in s:
-            trial.publication_date = as_na(s.get("publication_date"))
-        if "publication_lag_days" in s:
-            trial.publication_lag_days = s.get("publication_lag_days")
-        if "evidence_strength" in s:
-            trial.evidence_strength = as_na(s.get("evidence_strength"))
-        if "dead_end" in s:
-            trial.dead_end = as_na(s.get("dead_end"))
-
-        # -----------------------------
-        # Semantic classification
-        # -----------------------------
-        trial.study_design = as_na(s.get("study_design"))
-        trial.therapeutic_class = as_na(s.get("therapeutic_class"))
-        trial.focus_tags = as_na(s.get("focus_tags"))
-        trial.pdac_match_reason = as_na(s.get("pdac_match_reason"))
-
-        details = session.get(ClinicalTrialDetails, nct_id)
-        if not details:
-            details = ClinicalTrialDetails(nct_id=nct_id)
-            session.add(details)
-        details.conditions = as_na(s.get("conditions"))
-        details.interventions = as_na(s.get("interventions"))
-        details.primary_outcomes = as_na(s.get("primary_outcomes"))
-        details.secondary_outcomes = as_na(s.get("secondary_outcomes"))
-        details.inclusion_criteria = as_na(s.get("inclusion_criteria"))
-        details.exclusion_criteria = as_na(s.get("exclusion_criteria"))
-        details.locations = as_na(s.get("locations"))
-        details.brief_summary = as_na(s.get("brief_summary"))
-        details.detailed_description = as_na(s.get("detailed_description"))
-
-    session.commit()
+            workers=euctr_workers,
+            progress_every_pages=euctr_progress_every_pages,
+            stall_seconds=float(euctr_stall_seconds) if euctr_stall_seconds else None,
+            max_empty_pages=int(euctr_max_empty_pages) if euctr_max_empty_pages else None,
+            start_pages=euctr_start_pages,
+            on_page=_euctr_on_page,
+        ):
+            ins, upd = upsert_trial(session, study)
+            inserted += int(ins)
+            updated += int(upd)
+            euctr_count += 1
+            processed += 1
+            if commit_every and processed % commit_every == 0:
+                session.commit()
+        session.commit()
 
     pubmed_lookup_limit = int(os.getenv("PUBMED_LOOKUP_LIMIT", "200"))
     enriched, results_fixed = enrich_pubmed_links(session, max_lookups=pubmed_lookup_limit)
@@ -1796,12 +1985,13 @@ def run():
     mesh_updated = improve_therapeutic_class_ensemble(session, max_lookups=mesh_lookup_limit)
     signal_updated = compute_signal_fields(session)
 
-    print(f"\nTrials processed: {len(studies)}")
-    print(f"ClinicalTrials.gov rows: {len(ctgov_studies)}")
+    total_processed = ctgov_count + ctis_count + euctr_count
+    print(f"\nTrials processed: {total_processed}")
+    print(f"ClinicalTrials.gov rows: {ctgov_count}")
     if include_ctis:
-        print(f"CTIS rows: {len(ctis_studies)}")
+        print(f"CTIS rows: {ctis_count}")
     if include_euctr:
-        print(f"EUCTR rows: {len(euctr_studies)}")
+        print(f"EUCTR rows: {euctr_count}")
     print(f"New trials inserted: {inserted}")
     print(f"Existing trials updated: {updated}")
     print(f"CTIS↔NCT overlaps merged: {merged_ctis}")

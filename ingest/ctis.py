@@ -11,6 +11,7 @@ ingestion so both sources can be stored in the same local tables.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from datetime import datetime
 import re
@@ -716,13 +717,20 @@ def iter_ctis_overviews(
     query_terms: Optional[List[str]] = None,
     page_size: int = 100,
     max_records: Optional[int] = None,
+    progress_every_pages: int = 1,
+    stall_seconds: Optional[float] = None,
+    start_pages: Optional[Dict[str, int]] = None,
+    on_page: Optional[callable] = None,
 ) -> Iterable[Dict[str, Any]]:
     yielded = 0
     seen_ct_numbers = set()
     terms = _resolve_query_terms(query_terms=query_terms, medical_condition=medical_condition)
+    last_progress = time.monotonic()
 
     for term in terms:
         page = 1
+        if start_pages and term in start_pages and start_pages[term] > 1:
+            page = start_pages[term]
         while True:
             payload = deepcopy(CTIS_SEARCH_PAYLOAD_TEMPLATE)
             payload["pagination"]["page"] = page
@@ -730,8 +738,15 @@ def iter_ctis_overviews(
             payload["searchCriteria"]["medicalCondition"] = term
 
             data = _request_json("POST", CTIS_SEARCH_URL, payload=payload)
+            rows = data.get("data", []) or []
 
-            for trial in data.get("data", []) or []:
+            if progress_every_pages and page % progress_every_pages == 0:
+                print(
+                    f"[CTIS] term='{term}' page {page}: rows={len(rows)} total={yielded}",
+                    flush=True,
+                )
+
+            for trial in rows:
                 if not isinstance(trial, dict):
                     continue
                 ct_number = _clean(trial.get("ctNumber"))
@@ -740,8 +755,19 @@ def iter_ctis_overviews(
                 seen_ct_numbers.add(ct_number)
                 yield trial
                 yielded += 1
+                last_progress = time.monotonic()
                 if max_records is not None and yielded >= max_records:
                     return
+
+            if stall_seconds is not None and (time.monotonic() - last_progress) > stall_seconds:
+                print(
+                    f"[CTIS] autostop: no new overview rows for {int(stall_seconds)}s.",
+                    flush=True,
+                )
+                return
+
+            if on_page:
+                on_page(term=term, page=page, next_page=data.get("pagination", {}).get("nextPage"))
 
             if not data.get("pagination", {}).get("nextPage"):
                 break
@@ -752,164 +778,282 @@ def fetch_ctis_trial_detail(ct_number: str) -> Dict[str, Any]:
     return _request_json("GET", CTIS_RETRIEVE_URL.format(ct_number=ct_number))
 
 
+def _is_overview_pdac_candidate(overview: Dict[str, Any]) -> bool:
+    rough_text = _join_non_empty(
+        [
+            overview.get("ctTitle"),
+            overview.get("conditions"),
+            _join_non_empty(overview.get("therapeuticAreas", []) or []),
+            overview.get("product"),
+        ],
+        sep=" ",
+    )
+    return _is_pdac_candidate(rough_text)
+
+
+def _normalize_ctis_trial(overview: Dict[str, Any], details: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    title, brief_summary, detailed_description = _extract_titles_and_summaries(overview, details)
+    conditions = _extract_conditions(overview, details)
+    interventions, intervention_types = _extract_interventions(overview, details)
+    primary_outcomes, secondary_outcomes = _extract_endpoints(overview, details)
+    inclusion_criteria, exclusion_criteria = _extract_eligibility(details)
+    locations = _extract_locations(details)
+
+    classification_text = _build_classification_text(
+        overview=overview,
+        title=title,
+        conditions=conditions,
+        interventions=interventions,
+        primary_outcomes=primary_outcomes,
+        secondary_outcomes=secondary_outcomes,
+        detailed_description=detailed_description,
+    )
+    if not _is_pdac_candidate(classification_text):
+        return None
+
+    overview_phase = _clean(overview.get("trialPhase"))
+    detail_phase = _clean(
+        _nested(
+            details,
+            [
+                "authorizedApplication",
+                "authorizedPartI",
+                "trialDetails",
+                "trialInformation",
+                "trialCategory",
+                "trialPhase",
+            ],
+            "",
+        )
+    )
+    phase_raw = overview_phase
+    if ("phase" not in overview_phase.lower()) and detail_phase:
+        phase_raw = detail_phase
+    study_type = _map_ctis_study_type(
+        phase_raw,
+        _nested(
+            details,
+            [
+                "authorizedApplication",
+                "authorizedPartI",
+                "trialDetails",
+                "trialInformation",
+                "trialCategory",
+                "trialCategory",
+            ],
+            "",
+        ),
+    )
+    classification = classify_study(study_type, classification_text)
+    additional_focus = _extract_additional_focus_tags(classification_text)
+    if additional_focus:
+        classification["focus"] = _uniq(classification.get("focus", []) + additional_focus)
+    match_reason = pdac_match_reason(classification_text)
+    if match_reason == "unknown_match" and "pancrea" in classification_text.lower():
+        match_reason = "generic_pancreatic_oncology"
+
+    secondary_nct = _extract_secondary_nct(details)
+    pubmed_links = _extract_pubmed_links(details)
+    if not pubmed_links:
+        pubmed_links = _extract_pubmed_links_from_references(details)
+    if not pubmed_links and not secondary_nct:
+        # Pure CTIS trial without NCT bridge: fallback to title-based PubMed search.
+        pubmed_links = _fetch_pubmed_links_by_title(title or _clean(overview.get("ctTitle")), max_links=3)
+    has_results = _normalize_results_flag(overview, details)
+    if pubmed_links:
+        has_results = "yes"
+
+    admission_date = normalize_ctis_date(
+        _clean(overview.get("decisionDateOverall"))
+        or _clean(_nested(details, ["decisionDate"], ""))
+    )
+    last_update_date = normalize_ctis_date(
+        _clean(overview.get("lastUpdated"))
+        or _clean(overview.get("lastPublicationUpdate"))
+        or _clean(_nested(details, ["publishDate"], ""))
+    )
+    primary_completion_date = _extract_primary_completion_date(overview, details)
+    results_last_update = normalize_ctis_date(_clean(overview.get("lastPublicationUpdate")))
+
+    return {
+        "nct_id": _clean(overview.get("ctNumber")),
+        "source": "ctis",
+        "secondary_id": secondary_nct,
+        "trial_link": CTIS_TRIAL_URL.format(ct_number=_clean(overview.get("ctNumber"))),
+        "title": title or _clean(overview.get("ctTitle")),
+        "study_type": study_type,
+        "phase": normalize_ctis_phase(phase_raw),
+        "status": _clean(_nested(details, ["ctStatus"], "") or overview.get("ctStatus")).upper().replace(" ", "_"),
+        "sponsor": _extract_sponsor(overview, details),
+        "pdac_match_reason": match_reason,
+        "study_design": classification["study_design"],
+        "therapeutic_class": classification["therapeutic_class"],
+        "focus_tags": ",".join(classification["focus"]) if classification["focus"] else "",
+        "admission_date": admission_date,
+        "last_update_date": last_update_date,
+        "primary_completion_date": primary_completion_date,
+        "has_results": has_results,
+        "results_last_update": results_last_update,
+        "pubmed_links": pubmed_links,
+        "conditions": conditions,
+        "interventions": interventions,
+        "intervention_types": intervention_types,
+        "primary_outcomes": primary_outcomes,
+        "secondary_outcomes": secondary_outcomes,
+        "inclusion_criteria": inclusion_criteria,
+        "exclusion_criteria": exclusion_criteria,
+        "locations": locations,
+        "brief_summary": brief_summary,
+        "detailed_description": detailed_description,
+    }
+
+
 def fetch_trials_ctis_pdac(
     max_trials: Optional[int] = None,
     max_overview_records: Optional[int] = None,
     medical_condition: Optional[str] = None,
     query_terms: Optional[List[str]] = None,
     page_size: int = 100,
+    detail_workers: int = 4,
+    progress_every_pages: int = 1,
+    progress_every_details: int = 25,
+    stall_seconds: Optional[float] = None,
+    start_pages: Optional[Dict[str, int]] = None,
+    on_page: Optional[callable] = None,
 ) -> List[Dict[str, str]]:
-    """
-    Fetch and normalize PDAC-relevant trials from CTIS.
-    """
-    normalized = []
-
-    for overview in iter_ctis_overviews(
-        medical_condition=medical_condition,
-        query_terms=query_terms,
-        page_size=page_size,
-        max_records=max_overview_records,
-    ):
-        ct_number = _clean(overview.get("ctNumber"))
-        if not ct_number:
-            continue
-
-        rough_text = _join_non_empty(
-            [
-                overview.get("ctTitle"),
-                overview.get("conditions"),
-                _join_non_empty(overview.get("therapeuticAreas", []) or []),
-                overview.get("product"),
-            ],
-            sep=" ",
+    return list(
+        iter_trials_ctis_pdac(
+            max_trials=max_trials,
+            max_overview_records=max_overview_records,
+            medical_condition=medical_condition,
+            query_terms=query_terms,
+            page_size=page_size,
+            detail_workers=detail_workers,
+            progress_every_pages=progress_every_pages,
+            progress_every_details=progress_every_details,
+            stall_seconds=stall_seconds,
+            start_pages=start_pages,
+            on_page=on_page,
         )
-        if not _is_pdac_candidate(rough_text):
-            continue
+    )
 
-        try:
-            details = fetch_ctis_trial_detail(ct_number)
-        except Exception:
-            # Keep ingestion resilient: skip transiently broken detail rows.
-            continue
 
-        title, brief_summary, detailed_description = _extract_titles_and_summaries(overview, details)
-        conditions = _extract_conditions(overview, details)
-        interventions, intervention_types = _extract_interventions(overview, details)
-        primary_outcomes, secondary_outcomes = _extract_endpoints(overview, details)
-        inclusion_criteria, exclusion_criteria = _extract_eligibility(details)
-        locations = _extract_locations(details)
+def iter_trials_ctis_pdac(
+    max_trials: Optional[int] = None,
+    max_overview_records: Optional[int] = None,
+    medical_condition: Optional[str] = None,
+    query_terms: Optional[List[str]] = None,
+    page_size: int = 100,
+    detail_workers: int = 4,
+    progress_every_pages: int = 1,
+    progress_every_details: int = 25,
+    stall_seconds: Optional[float] = None,
+    start_pages: Optional[Dict[str, int]] = None,
+    on_page: Optional[callable] = None,
+) -> Iterable[Dict[str, str]]:
+    """
+    Stream and normalize PDAC-relevant trials from CTIS with page-level checkpoints.
+    """
+    total_kept = 0
+    overview_scanned = 0
+    last_match_time = time.monotonic()
 
-        classification_text = _build_classification_text(
-            overview=overview,
-            title=title,
-            conditions=conditions,
-            interventions=interventions,
-            primary_outcomes=primary_outcomes,
-            secondary_outcomes=secondary_outcomes,
-            detailed_description=detailed_description,
-        )
-        if not _is_pdac_candidate(classification_text):
-            continue
-
-        overview_phase = _clean(overview.get("trialPhase"))
-        detail_phase = _clean(
-            _nested(
-                details,
-                [
-                    "authorizedApplication",
-                    "authorizedPartI",
-                    "trialDetails",
-                    "trialInformation",
-                    "trialCategory",
-                    "trialPhase",
-                ],
-                "",
+    def _page_overviews(term: str, page: int, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        candidates = []
+        for overview in rows:
+            ct_number = _clean(overview.get("ctNumber"))
+            if not ct_number:
+                continue
+            if not _is_overview_pdac_candidate(overview):
+                continue
+            candidates.append(overview)
+        if progress_every_pages:
+            print(
+                f"[CTIS] term='{term}' page {page}: candidates={len(candidates)}",
+                flush=True,
             )
-        )
-        phase_raw = overview_phase
-        if ("phase" not in overview_phase.lower()) and detail_phase:
-            phase_raw = detail_phase
-        study_type = _map_ctis_study_type(
-            phase_raw,
-            _nested(
-                details,
-                [
-                    "authorizedApplication",
-                    "authorizedPartI",
-                    "trialDetails",
-                    "trialInformation",
-                    "trialCategory",
-                    "trialCategory",
-                ],
-                "",
-            ),
-        )
-        classification = classify_study(study_type, classification_text)
-        additional_focus = _extract_additional_focus_tags(classification_text)
-        if additional_focus:
-            classification["focus"] = _uniq(classification.get("focus", []) + additional_focus)
-        match_reason = pdac_match_reason(classification_text)
-        if match_reason == "unknown_match" and "pancrea" in classification_text.lower():
-            match_reason = "generic_pancreatic_oncology"
+        return candidates
 
-        secondary_nct = _extract_secondary_nct(details)
-        pubmed_links = _extract_pubmed_links(details)
-        if not pubmed_links:
-            pubmed_links = _extract_pubmed_links_from_references(details)
-        if not pubmed_links and not secondary_nct:
-            # Pure CTIS trial without NCT bridge: fallback to title-based PubMed search.
-            pubmed_links = _fetch_pubmed_links_by_title(title or _clean(overview.get("ctTitle")), max_links=3)
-        has_results = _normalize_results_flag(overview, details)
-        if pubmed_links:
-            has_results = "yes"
+    def _fetch_details_batch(candidates: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+        if detail_workers <= 1:
+            out = []
+            for overview in candidates:
+                ct_number = _clean(overview.get("ctNumber"))
+                if not ct_number:
+                    continue
+                try:
+                    details = fetch_ctis_trial_detail(ct_number)
+                except Exception:
+                    continue
+                normalized = _normalize_ctis_trial(overview, details)
+                if normalized:
+                    out.append(normalized)
+            return out
 
-        admission_date = normalize_ctis_date(
-            _clean(overview.get("decisionDateOverall"))
-            or _clean(_nested(details, ["decisionDate"], ""))
-        )
-        last_update_date = normalize_ctis_date(
-            _clean(overview.get("lastUpdated"))
-            or _clean(overview.get("lastPublicationUpdate"))
-            or _clean(_nested(details, ["publishDate"], ""))
-        )
-        primary_completion_date = _extract_primary_completion_date(overview, details)
-        results_last_update = normalize_ctis_date(_clean(overview.get("lastPublicationUpdate")))
+        executor = ThreadPoolExecutor(max_workers=detail_workers)
+        futures = {}
+        for overview in candidates:
+            ct_number = _clean(overview.get("ctNumber"))
+            if not ct_number:
+                continue
+            futures[executor.submit(fetch_ctis_trial_detail, ct_number)] = overview
+        out = []
+        try:
+            for future in as_completed(futures):
+                overview = futures[future]
+                try:
+                    details = future.result()
+                except Exception:
+                    continue
+                normalized = _normalize_ctis_trial(overview, details)
+                if normalized:
+                    out.append(normalized)
+        finally:
+            executor.shutdown(wait=True, cancel_futures=True)
+        return out
 
-        normalized.append(
-            {
-                "nct_id": ct_number,
-                "source": "ctis",
-                "secondary_id": secondary_nct,
-                "trial_link": CTIS_TRIAL_URL.format(ct_number=ct_number),
-                "title": title or _clean(overview.get("ctTitle")),
-                "study_type": study_type,
-                "phase": normalize_ctis_phase(phase_raw),
-                "status": _clean(_nested(details, ["ctStatus"], "") or overview.get("ctStatus")).upper().replace(" ", "_"),
-                "sponsor": _extract_sponsor(overview, details),
-                "pdac_match_reason": match_reason,
-                "study_design": classification["study_design"],
-                "therapeutic_class": classification["therapeutic_class"],
-                "focus_tags": ",".join(classification["focus"]) if classification["focus"] else "",
-                "admission_date": admission_date,
-                "last_update_date": last_update_date,
-                "primary_completion_date": primary_completion_date,
-                "has_results": has_results,
-                "results_last_update": results_last_update,
-                "pubmed_links": pubmed_links,
-                "conditions": conditions,
-                "interventions": interventions,
-                "intervention_types": intervention_types,
-                "primary_outcomes": primary_outcomes,
-                "secondary_outcomes": secondary_outcomes,
-                "inclusion_criteria": inclusion_criteria,
-                "exclusion_criteria": exclusion_criteria,
-                "locations": locations,
-                "brief_summary": brief_summary,
-                "detailed_description": detailed_description,
-            }
-        )
+    for term in _resolve_query_terms(query_terms=query_terms, medical_condition=medical_condition):
+        page = 1
+        if start_pages and term in start_pages and start_pages[term] > 1:
+            page = start_pages[term]
 
-        if max_trials is not None and len(normalized) >= max_trials:
-            break
+        while True:
+            payload = deepcopy(CTIS_SEARCH_PAYLOAD_TEMPLATE)
+            payload["pagination"]["page"] = page
+            payload["pagination"]["size"] = page_size
+            payload["searchCriteria"]["medicalCondition"] = term
 
-    return normalized
+            data = _request_json("POST", CTIS_SEARCH_URL, payload=payload)
+            rows = data.get("data", []) or []
+            overview_scanned += len(rows)
+            candidates = _page_overviews(term, page, rows)
+            normalized_batch = _fetch_details_batch(candidates)
+
+            for item in normalized_batch:
+                yield item
+                total_kept += 1
+                last_match_time = time.monotonic()
+                if progress_every_details and total_kept % progress_every_details == 0:
+                    print(
+                        f"[CTIS] kept={total_kept}",
+                        flush=True,
+                    )
+                if max_trials is not None and total_kept >= max_trials:
+                    return
+
+            if stall_seconds is not None and (time.monotonic() - last_match_time) > stall_seconds:
+                print(
+                    f"[CTIS] autostop: no new PDAC matches for {int(stall_seconds)}s.",
+                    flush=True,
+                )
+                return
+
+            if on_page:
+                on_page(term=term, page=page, next_page=data.get("pagination", {}).get("nextPage"))
+
+            if not data.get("pagination", {}).get("nextPage"):
+                break
+
+            page += 1
+            if max_overview_records is not None and overview_scanned >= max_overview_records:
+                return

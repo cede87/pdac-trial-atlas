@@ -74,6 +74,12 @@ Recommended run modes:
 - Full publication re-index (occasional deep refresh):
   - `PYTHONPATH=. PUBMED_PUBLICATION_MODE=full python3 scripts/ingest_clinicaltrials.py`
 
+Ingestion persistence controls (optional):
+- `INGEST_RESUME=1` resume from saved checkpoints (default on)
+- `INGEST_RESET_CHECKPOINTS=1` clear checkpoints before running
+- `INGEST_COMMIT_EVERY=200` commit every N rows to persist incremental progress
+  - Checkpoints are stored per source (CT.gov default token, CTIS/EUCTR per term page).
+
 Dataset release (Parquet + schema + checksums from existing CSV + yearly metrics CSV already present):
 - `./scripts/release_dataset.sh`
 - Optional controls:
@@ -82,19 +88,35 @@ Dataset release (Parquet + schema + checksums from existing CSV + yearly metrics
   - `RUN_QA=1` (default) or `0`
   - `DATASET_VERSION=1.6`
 
+ClinicalTrials.gov controls (optional):
+- `CTGOV_PROGRESS_EVERY=1` print page-level progress (set `0` to disable)
+- `CTGOV_MAX_EMPTY_PAGES=10` autostop after N consecutive pages with 0 PDAC matches
+- `CTGOV_STALL_SECONDS=900` autostop if no new PDAC matches for N seconds
+
 CTIS controls (optional):
 - `INGEST_CTIS=0` skip CTIS for a run
 - `CTIS_QUERY_TERMS=pancreatic,pancreas,pdac,pancreatic cancer` to set custom CTIS search terms
 - `CTIS_MEDICAL_CONDITION=pancreatic` to force a single CTIS medical condition term
 - `CTIS_MAX_OVERVIEW=200` limit scanned overview rows
 - `CTIS_MAX_TRIALS=100` limit normalized CTIS trials kept
+- `CTIS_PAGE_SIZE=100` overview page size
+- `CTIS_DETAIL_WORKERS=4` parallel CTIS detail fetch workers
+- `CTIS_PROGRESS_EVERY_PAGES=1` print overview page progress (set `0` to disable)
+- `CTIS_PROGRESS_EVERY_DETAILS=25` print detail progress every N trials
+- `CTIS_STALL_SECONDS=900` autostop if no new PDAC matches for N seconds
 
 EUCTR (legacy EU register) controls (optional):
 - `INGEST_EUCTR=0` skip EUCTR ingestion for a run
-- `EUCTR_QUERY_TERMS=pancreatic,pancreas,pdac,pancreatic cancer` to set custom EUCTR search terms
+- `EUCTR_QUERY_TERMS=pancreatic,pancreas` to set custom EUCTR search terms
 - `EUCTR_MAX_PAGES=50` limit fetched EUCTR result pages per term
 - `EUCTR_MAX_TRIALS=1000` limit normalized EUCTR trials kept
 - `EUCTR_PAGE_SLEEP=0.25` sleep (seconds) between EUCTR pages to avoid throttling
+- `EUCTR_WORKERS=3` parallel term workers
+- `EUCTR_PROGRESS_EVERY_PAGES=1` print page-level progress (set `0` to disable)
+- `EUCTR_STALL_SECONDS=900` autostop if no new rows for N seconds
+- `EUCTR_MAX_EMPTY_PAGES=50` autostop after N consecutive pages with 0 PDAC candidates (per term)
+
+
 
 ### Identifier model (important)
 
