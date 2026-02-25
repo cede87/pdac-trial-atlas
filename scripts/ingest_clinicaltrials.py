@@ -111,6 +111,17 @@ def set_checkpoint(session, source: str, scope: str, data: dict) -> None:
     session.commit()
 
 
+def set_checkpoint_threadsafe(source: str, scope: str, data: dict) -> None:
+    """
+    Thread-safe checkpoint writer for worker threads (creates its own session).
+    """
+    thread_session = SessionLocal()
+    try:
+        set_checkpoint(thread_session, source, scope, data)
+    finally:
+        thread_session.close()
+
+
 def clear_checkpoints(session) -> None:
     session.execute(text(f"DELETE FROM {CHECKPOINT_TABLE}"))
     session.commit()
@@ -1918,8 +1929,7 @@ def run():
                     euctr_start_pages[term] = int(checkpoint["next_page"])
 
         def _euctr_on_page(term: str, page: int, rows: int, candidate_count: int, next_page: int) -> None:
-            set_checkpoint(
-                session,
+            set_checkpoint_threadsafe(
                 "euctr",
                 term,
                 {
