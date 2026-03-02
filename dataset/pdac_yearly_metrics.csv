@@ -1,29 +1,29 @@
 year,trials_started,trials_completed,trials_terminated,success_rate,avg_duration_by_phase,top_target_by_count,new_targets_introduced
-1999,16,12,4,0.0,"{""PHASE1"": 31.97, ""PHASE1/PHASE2"": 37.84, ""PHASE2"": 24.75}",cisplatin,15
-2000,9,7,0,NA,"{""PHASE2"": 35.17}",gemcitabine hydrochloride,5
+1999,16,12,4,0.0,"{""None"": 55.98, ""PHASE1"": 31.97, ""PHASE1/PHASE2"": 37.84, ""PHASE2"": 24.75}",cisplatin,15
+2000,9,7,0,0.0,"{""PHASE2"": 35.17}",gemcitabine hydrochloride,5
 2001,11,8,1,0.0,"{""PHASE1"": 1.77, ""PHASE2"": 42.66, ""PHASE3"": 43.16}",fluorouracil,7
-2002,17,16,1,0.667,"{""PHASE1"": 53.77, ""PHASE2"": 51.79, ""PHASE3"": 30.66}",7 hydroxystaurosporine,13
-2003,16,15,1,0.667,"{""PHASE1"": 55.7, ""PHASE2"": 41.34, ""PHASE2/PHASE3"": 41.82, ""PHASE3"": 66.31}",perifosine,10
-2004,14,10,0,1.0,"{""PHASE1"": 190.64, ""PHASE2"": 57.23, ""PHASE3"": 23.29}",gemcitabine hydrochloride,7
-2005,64,52,9,0.471,"{""PHASE1"": 32.28, ""PHASE1/PHASE2"": 34.36, ""PHASE2"": 31.38, ""PHASE2/PHASE3"": 33.92}",advanced disease,32
-2006,74,49,15,0.211,"{""EARLY_PHASE1"": 84.6, ""PHASE1"": 38.11, ""PHASE1/PHASE2"": 24.78, ""PHASE2"": 41.03, ""PHASE3"": 42.08}",advanced disease,32
-2007,91,60,16,0.5,"{""PHASE1"": 38.17, ""PHASE1/PHASE2"": 55.25, ""PHASE2"": 35.45, ""PHASE2/PHASE3"": 61.4, ""PHASE3"": 31.79, ""PHASE4"": 17.41}",advanced disease,42
-2008,85,57,15,0.483,"{""PHASE1"": 58.3, ""PHASE1/PHASE2"": 46.79, ""PHASE2"": 36.1, ""PHASE2/PHASE3"": 1.91, ""PHASE3"": 38.96, ""PHASE4"": 12.42}",advanced disease,44
-2009,106,74,17,0.469,"{""EARLY_PHASE1"": 34.43, ""PHASE1"": 34.81, ""PHASE1/PHASE2"": 31.18, ""PHASE2"": 37.65, ""PHASE3"": 168.86, ""PHASE4"": 44.35}",advanced disease,51
-2010,77,48,17,0.393,"{""PHASE1"": 31.27, ""PHASE1/PHASE2"": 36.62, ""PHASE2"": 31.7, ""PHASE2/PHASE3"": 57.72, ""PHASE3"": 64.43}",advanced disease,39
-2011,93,66,14,0.576,"{""PHASE1"": 36.13, ""PHASE1/PHASE2"": 56.4, ""PHASE2"": 39.16, ""PHASE2/PHASE3"": 74.44, ""PHASE3"": 37.08, ""PHASE4"": 21.35}",advanced disease,54
-2012,84,43,17,0.393,"{""EARLY_PHASE1"": 27.17, ""PHASE1"": 35.43, ""PHASE1/PHASE2"": 49.73, ""PHASE2"": 48.14, ""PHASE2/PHASE3"": 42.87, ""PHASE3"": 55.37}",advanced disease,41
-2013,104,63,17,0.514,"{""EARLY_PHASE1"": 24.84, ""PHASE1"": 43.26, ""PHASE1/PHASE2"": 49.45, ""PHASE2"": 54.69, ""PHASE3"": 78.59, ""PHASE4"": 58.54}",advanced disease,51
-2014,128,86,20,0.487,"{""EARLY_PHASE1"": 52.35, ""PHASE1"": 34.49, ""PHASE1/PHASE2"": 58.04, ""PHASE2"": 51.64, ""PHASE3"": 39.68, ""PHASE4"": 56.6}",advanced disease,75
-2015,126,76,23,0.465,"{""EARLY_PHASE1"": 68.99, ""PHASE1"": 47.69, ""PHASE1/PHASE2"": 50.48, ""PHASE2"": 43.25, ""PHASE3"": 40.59, ""PHASE4"": 23.88}",advanced disease,57
-2016,131,62,21,0.543,"{""EARLY_PHASE1"": 27.86, ""PHASE1"": 41.42, ""PHASE1/PHASE2"": 53.05, ""PHASE2"": 47.81, ""PHASE2/PHASE3"": 75.23, ""PHASE3"": 47.26, ""PHASE4"": 34.51}",advanced disease,85
-2017,133,57,23,0.439,"{""EARLY_PHASE1"": 22.62, ""PHASE1"": 38.29, ""PHASE1/PHASE2"": 48.02, ""PHASE2"": 55.05, ""PHASE2/PHASE3"": 26.92, ""PHASE3"": 61.03, ""PHASE4"": 12.06}",advanced disease,76
-2018,151,55,32,0.304,"{""EARLY_PHASE1"": 39.48, ""PHASE1"": 49.35, ""PHASE1/PHASE2"": 54.01, ""PHASE2"": 51.42, ""PHASE2/PHASE3"": 60.26, ""PHASE3"": 46.64}",advanced disease,71
-2019,173,46,30,0.231,"{""EARLY_PHASE1"": 52.76, ""PHASE1"": 58.94, ""PHASE1/PHASE2"": 49.98, ""PHASE2"": 46.87, ""PHASE2/PHASE3"": 32.78, ""PHASE3"": 56.3, ""PHASE4"": 36.81}",advanced disease,93
-2020,150,38,18,0.4,"{""EARLY_PHASE1"": 65.67, ""PHASE1"": 41.87, ""PHASE1/PHASE2"": 39.5, ""PHASE2"": 50.53, ""PHASE3"": 43.92, ""PHASE4"": 18.17}",advanced disease,84
-2021,171,32,12,0.333,"{""EARLY_PHASE1"": 53.93, ""PHASE1"": 43.21, ""PHASE1/PHASE2"": 47.85, ""PHASE2"": 45.17, ""PHASE2/PHASE3"": 17.18, ""PHASE3"": 36.96, ""PHASE4"": 55.49}",advanced disease,107
-2022,169,25,16,0.2,"{""EARLY_PHASE1"": 29.55, ""PHASE1"": 38.95, ""PHASE1/PHASE2"": 36.01, ""PHASE2"": 31.6, ""PHASE2/PHASE3"": 41.87, ""PHASE3"": 60.23}",advanced disease,105
-2023,186,13,11,0.154,"{""EARLY_PHASE1"": 59.23, ""PHASE1"": 35.92, ""PHASE1/PHASE2"": 26.37, ""PHASE2"": 32.37, ""PHASE2/PHASE3"": 39.68, ""PHASE3"": 35.42, ""PHASE4"": 31.41}",advanced disease,114
-2024,252,18,7,0.364,"{""EARLY_PHASE1"": 17.62, ""PHASE1"": 28.59, ""PHASE1/PHASE2"": 26.56, ""PHASE2"": 26.84, ""PHASE2/PHASE3"": 34.48, ""PHASE3"": 37.14, ""PHASE4"": 34.44}",advanced disease,160
-2025,205,11,1,0.5,"{""EARLY_PHASE1"": 20.29, ""PHASE1"": 23.48, ""PHASE1/PHASE2"": 29.82, ""PHASE2"": 28.59, ""PHASE2/PHASE3"": 48.92, ""PHASE3"": 38.42, ""PHASE4"": 23.9}",biomarker,132
-2026,20,1,0,NA,"{""EARLY_PHASE1"": 19.25, ""PHASE1/PHASE2"": 25.13, ""PHASE2"": 15.06, ""PHASE3"": 37.87}",advanced disease,13
+2002,17,16,1,0.118,"{""PHASE1"": 53.77, ""PHASE2"": 51.79, ""PHASE3"": 30.66}",7 hydroxystaurosporine,13
+2003,16,15,1,0.125,"{""PHASE1"": 55.7, ""PHASE2"": 41.34, ""PHASE2/PHASE3"": 41.82, ""PHASE3"": 66.31}",perifosine,10
+2004,14,10,0,0.2,"{""PHASE1"": 190.64, ""PHASE2"": 57.23, ""PHASE3"": 23.29}",gemcitabine hydrochloride,7
+2005,64,52,9,0.131,"{""None"": 52.5, ""PHASE1"": 32.28, ""PHASE1/PHASE2"": 34.36, ""PHASE2"": 31.38, ""PHASE2/PHASE3"": 33.92}",advanced disease,32
+2006,74,49,15,0.062,"{""EARLY_PHASE1"": 84.6, ""None"": 44.03, ""PHASE1"": 38.11, ""PHASE1/PHASE2"": 24.78, ""PHASE2"": 41.03, ""PHASE3"": 42.08}",advanced disease,32
+2007,91,60,16,0.211,"{""None"": 84.53, ""PHASE1"": 38.17, ""PHASE1/PHASE2"": 55.25, ""PHASE2"": 35.45, ""PHASE2/PHASE3"": 61.4, ""PHASE3"": 31.79, ""PHASE4"": 17.41}",advanced disease,42
+2008,85,57,15,0.194,"{""None"": 59.19, ""PHASE1"": 58.3, ""PHASE1/PHASE2"": 46.79, ""PHASE2"": 36.1, ""PHASE2/PHASE3"": 1.91, ""PHASE3"": 38.96, ""PHASE4"": 12.42}",advanced disease,44
+2009,106,74,17,0.165,"{""EARLY_PHASE1"": 34.43, ""None"": 59.21, ""PHASE1"": 34.81, ""PHASE1/PHASE2"": 31.18, ""PHASE2"": 37.65, ""PHASE3"": 168.86, ""PHASE4"": 44.35}",advanced disease,51
+2010,77,48,17,0.169,"{""None"": 78.27, ""PHASE1"": 31.27, ""PHASE1/PHASE2"": 36.62, ""PHASE2"": 31.7, ""PHASE2/PHASE3"": 57.72, ""PHASE3"": 64.43}",advanced disease,39
+2011,93,66,14,0.237,"{""None"": 49.55, ""PHASE1"": 36.13, ""PHASE1/PHASE2"": 56.4, ""PHASE2"": 39.16, ""PHASE2/PHASE3"": 74.44, ""PHASE3"": 37.08, ""PHASE4"": 21.35}",advanced disease,54
+2012,84,43,17,0.183,"{""EARLY_PHASE1"": 27.17, ""None"": 53.83, ""PHASE1"": 35.43, ""PHASE1/PHASE2"": 49.73, ""PHASE2"": 48.14, ""PHASE2/PHASE3"": 42.87, ""PHASE3"": 55.37}",advanced disease,41
+2013,104,63,17,0.225,"{""EARLY_PHASE1"": 24.84, ""None"": 35.42, ""PHASE1"": 43.26, ""PHASE1/PHASE2"": 49.45, ""PHASE2"": 54.69, ""PHASE3"": 78.59, ""PHASE4"": 58.54}",advanced disease,51
+2014,128,86,20,0.179,"{""EARLY_PHASE1"": 52.35, ""None"": 54.78, ""PHASE1"": 34.49, ""PHASE1/PHASE2"": 58.04, ""PHASE2"": 51.64, ""PHASE3"": 39.68, ""PHASE4"": 56.6}",advanced disease,75
+2015,126,76,23,0.202,"{""EARLY_PHASE1"": 68.99, ""None"": 51.9, ""PHASE1"": 47.69, ""PHASE1/PHASE2"": 50.48, ""PHASE2"": 43.25, ""PHASE3"": 40.59, ""PHASE4"": 23.88}",advanced disease,57
+2016,131,62,21,0.301,"{""EARLY_PHASE1"": 27.86, ""None"": 57.18, ""PHASE1"": 41.42, ""PHASE1/PHASE2"": 53.05, ""PHASE2"": 47.81, ""PHASE2/PHASE3"": 75.23, ""PHASE3"": 47.26, ""PHASE4"": 34.51}",advanced disease,85
+2017,133,57,23,0.225,"{""EARLY_PHASE1"": 22.62, ""None"": 52.62, ""PHASE1"": 38.29, ""PHASE1/PHASE2"": 48.02, ""PHASE2"": 55.05, ""PHASE2/PHASE3"": 26.92, ""PHASE3"": 61.03, ""PHASE4"": 12.06}",advanced disease,76
+2018,151,55,32,0.161,"{""EARLY_PHASE1"": 39.48, ""None"": 42.89, ""PHASE1"": 49.35, ""PHASE1/PHASE2"": 54.01, ""PHASE2"": 51.42, ""PHASE2/PHASE3"": 60.26, ""PHASE3"": 46.64}",advanced disease,71
+2019,173,46,30,0.118,"{""EARLY_PHASE1"": 52.76, ""None"": 48.52, ""PHASE1"": 58.94, ""PHASE1/PHASE2"": 49.98, ""PHASE2"": 46.87, ""PHASE2/PHASE3"": 32.78, ""PHASE3"": 56.3, ""PHASE4"": 36.81}",advanced disease,93
+2020,150,38,18,0.214,"{""EARLY_PHASE1"": 65.67, ""None"": 39.36, ""PHASE1"": 41.87, ""PHASE1/PHASE2"": 39.5, ""PHASE2"": 50.53, ""PHASE3"": 43.92, ""PHASE4"": 18.17}",advanced disease,84
+2021,171,32,12,0.136,"{""EARLY_PHASE1"": 53.93, ""None"": 44.66, ""PHASE1"": 43.21, ""PHASE1/PHASE2"": 47.85, ""PHASE2"": 45.17, ""PHASE2/PHASE3"": 17.18, ""PHASE3"": 36.96, ""PHASE4"": 55.49}",advanced disease,107
+2022,169,25,16,0.098,"{""EARLY_PHASE1"": 29.55, ""None"": 34.55, ""PHASE1"": 38.95, ""PHASE1/PHASE2"": 36.01, ""PHASE2"": 31.6, ""PHASE2/PHASE3"": 41.87, ""PHASE3"": 60.23}",advanced disease,105
+2023,186,13,11,0.083,"{""EARLY_PHASE1"": 59.23, ""None"": 38.63, ""PHASE1"": 35.92, ""PHASE1/PHASE2"": 26.37, ""PHASE2"": 32.37, ""PHASE2/PHASE3"": 39.68, ""PHASE3"": 35.42, ""PHASE4"": 31.41}",advanced disease,114
+2024,252,18,7,0.16,"{""EARLY_PHASE1"": 17.62, ""None"": 32.79, ""PHASE1"": 28.59, ""PHASE1/PHASE2"": 26.56, ""PHASE2"": 26.84, ""PHASE2/PHASE3"": 34.48, ""PHASE3"": 37.14, ""PHASE4"": 34.44}",advanced disease,161
+2025,205,11,1,0.083,"{""EARLY_PHASE1"": 20.29, ""None"": 23.68, ""PHASE1"": 23.48, ""PHASE1/PHASE2"": 29.82, ""PHASE2"": 28.59, ""PHASE2/PHASE3"": 48.92, ""PHASE3"": 38.42, ""PHASE4"": 23.9}",biomarker,132
+2026,20,1,0,0.0,"{""EARLY_PHASE1"": 19.25, ""None"": 20.68, ""PHASE1/PHASE2"": 25.13, ""PHASE2"": 15.06, ""PHASE3"": 37.87}",advanced disease,13

@@ -1920,6 +1920,7 @@ def run():
         euctr_progress_every_pages = int(os.getenv("EUCTR_PROGRESS_EVERY_PAGES", "1"))
         euctr_stall_seconds = os.getenv("EUCTR_STALL_SECONDS")
         euctr_max_empty_pages = os.getenv("EUCTR_MAX_EMPTY_PAGES")
+        euctr_max_no_new_pages = os.getenv("EUCTR_MAX_NO_NEW_PAGES")
         euctr_start_pages = {}
         euctr_terms = euctr_query_terms or list(DEFAULT_EUCTR_QUERY_TERMS)
         if resume_enabled:
@@ -1928,7 +1929,14 @@ def run():
                 if checkpoint.get("next_page"):
                     euctr_start_pages[term] = int(checkpoint["next_page"])
 
-        def _euctr_on_page(term: str, page: int, rows: int, candidate_count: int, next_page: int) -> None:
+        def _euctr_on_page(
+            term: str,
+            page: int,
+            rows: int,
+            candidate_count: int,
+            next_page: int,
+            **kwargs,
+        ) -> None:
             set_checkpoint_threadsafe(
                 "euctr",
                 term,
@@ -1937,6 +1945,7 @@ def run():
                     "next_page": next_page,
                     "rows": rows,
                     "candidate_count": candidate_count,
+                    "new_candidate_count": kwargs.get("new_candidate_count", 0),
                     "updated_at": datetime.utcnow().isoformat(),
                 },
             )
@@ -1951,6 +1960,7 @@ def run():
             progress_every_pages=euctr_progress_every_pages,
             stall_seconds=float(euctr_stall_seconds) if euctr_stall_seconds else None,
             max_empty_pages=int(euctr_max_empty_pages) if euctr_max_empty_pages else None,
+            max_no_new_pages=int(euctr_max_no_new_pages) if euctr_max_no_new_pages else None,
             start_pages=euctr_start_pages,
             on_page=_euctr_on_page,
         ):

@@ -212,6 +212,7 @@ def iter_euctr_summaries(
     progress_every_pages: int = 1,
     stall_seconds: Optional[float] = None,
     max_empty_pages: Optional[int] = None,
+    max_no_new_pages: Optional[int] = None,
     start_page: int = 1,
     on_page: Optional[callable] = None,
 ) -> Iterable[EuctrSummaryRow]:
@@ -219,6 +220,8 @@ def iter_euctr_summaries(
     yielded = 0
     last_progress = time.monotonic()
     empty_pages = 0
+    no_new_pages = 0
+    seen_candidate_ids: set[str] = set()
     while True:
         if max_pages is not None and page > max_pages:
             break
@@ -230,17 +233,32 @@ def iter_euctr_summaries(
                 flush=True,
             )
         candidate_count = 0
+        new_candidate_count = 0
         if rows:
             candidate_count = 0
+            candidate_ids: List[str] = []
             for row in rows:
                 if _is_pdac_candidate(_build_classification_text(row)):
                     candidate_count += 1
+                    if row.eudract_number:
+                        candidate_ids.append(row.eudract_number)
+            if candidate_ids:
+                new_candidates = [cid for cid in candidate_ids if cid not in seen_candidate_ids]
+                new_candidate_count = len(new_candidates)
+                if new_candidate_count == 0:
+                    no_new_pages += 1
+                else:
+                    no_new_pages = 0
+                    seen_candidate_ids.update(new_candidates)
+            else:
+                no_new_pages += 1
             if candidate_count == 0:
                 empty_pages += 1
             else:
                 empty_pages = 0
         else:
             empty_pages += 1
+            no_new_pages += 1
 
         if on_page:
             on_page(
@@ -248,12 +266,19 @@ def iter_euctr_summaries(
                 page=page,
                 rows=len(rows),
                 candidate_count=candidate_count,
+                new_candidate_count=new_candidate_count,
                 next_page=(page + 1),
             )
 
         if max_empty_pages is not None and empty_pages >= max_empty_pages:
             print(
                 f"[EUCTR] autostop: {empty_pages} consecutive pages with 0 PDAC candidates.",
+                flush=True,
+            )
+            return
+        if max_no_new_pages is not None and no_new_pages >= max_no_new_pages:
+            print(
+                f"[EUCTR] autostop: {no_new_pages} consecutive pages with 0 new PDAC candidates.",
                 flush=True,
             )
             return
@@ -294,6 +319,7 @@ def _collect_term_rows(
     progress_every_pages: int,
     stall_seconds: Optional[float],
     max_empty_pages: Optional[int],
+    max_no_new_pages: Optional[int],
     start_page: int,
     on_page: Optional[callable],
 ) -> Dict[str, EuctrSummaryRow]:
@@ -307,6 +333,7 @@ def _collect_term_rows(
         progress_every_pages=progress_every_pages,
         stall_seconds=stall_seconds,
         max_empty_pages=max_empty_pages,
+        max_no_new_pages=max_no_new_pages,
         start_page=start_page,
         on_page=on_page,
     ):
@@ -332,6 +359,7 @@ def fetch_trials_euctr_pdac(
     progress_every_pages: int = 1,
     stall_seconds: Optional[float] = None,
     max_empty_pages: Optional[int] = None,
+    max_no_new_pages: Optional[int] = None,
     start_pages: Optional[Dict[str, int]] = None,
     on_page: Optional[callable] = None,
 ) -> List[Dict[str, str]]:
@@ -345,6 +373,7 @@ def fetch_trials_euctr_pdac(
             progress_every_pages=progress_every_pages,
             stall_seconds=stall_seconds,
             max_empty_pages=max_empty_pages,
+            max_no_new_pages=max_no_new_pages,
             start_pages=start_pages,
             on_page=on_page,
         )
@@ -361,6 +390,7 @@ def iter_trials_euctr_pdac(
     progress_every_pages: int = 1,
     stall_seconds: Optional[float] = None,
     max_empty_pages: Optional[int] = None,
+    max_no_new_pages: Optional[int] = None,
     start_pages: Optional[Dict[str, int]] = None,
     on_page: Optional[callable] = None,
 ) -> Iterable[Dict[str, str]]:
@@ -377,6 +407,7 @@ def iter_trials_euctr_pdac(
                 progress_every_pages=progress_every_pages,
                 stall_seconds=stall_seconds,
                 max_empty_pages=max_empty_pages,
+                max_no_new_pages=max_no_new_pages,
                 start_page=(start_pages or {}).get(term, 1),
                 on_page=on_page,
             )
@@ -398,6 +429,7 @@ def iter_trials_euctr_pdac(
                 progress_every_pages=progress_every_pages,
                 stall_seconds=stall_seconds,
                 max_empty_pages=max_empty_pages,
+                max_no_new_pages=max_no_new_pages,
                 start_page=(start_pages or {}).get(term, 1),
                 on_page=on_page,
             ): term

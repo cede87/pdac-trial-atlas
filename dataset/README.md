@@ -144,7 +144,7 @@ Notes:
 5. Generate ML-ready dataset (`pdac-trials.csv`) with deduplication and engineered features.
 6. Export CSV/Parquet with schema metadata.
 7. Generate yearly metrics.
-8. Generation timestamp (UTC): 2026-02-22 21:09:45Z
+8. Generation timestamp (UTC): 2026-03-02 11:21:54Z
 
 ## License
 This dataset is released under CC BY 4.0. See `LICENSE-CC-BY-4.0.txt`.

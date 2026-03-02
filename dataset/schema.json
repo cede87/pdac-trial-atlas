@@ -1,7 +1,7 @@
 {
   "name": "PDAC Trial Atlas dataset",
   "version": "1.6",
-  "generated_at_utc": "2026-02-22 21:21:49Z",
+  "generated_at_utc": "2026-03-02 11:21:26Z",
   "files": {
     "pdac-trials.csv": {
       "path": "pdac-trials.csv",
@@ -15,6 +15,11 @@
       "path": "pdac-trials.parquet",
       "format": "parquet",
       "rows": 2859
+    },
+    "pdac_yearly_metrics.csv": {
+      "path": "pdac_yearly_metrics.csv",
+      "format": "csv",
+      "rows": 28
     }
   },
   "columns": [

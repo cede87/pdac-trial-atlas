@@ -26,6 +26,7 @@ The dashboard runs 100% local and reads from `pdac_trials.db`.
 Ingestion now merges:
 - ClinicalTrials.gov PDAC trials
 - CTIS (EU Clinical Trials Information System) PDAC trials
+- EUCTR (legacy EU Clinical Trials Register) PDAC trials
 
 During ingestion, PubMed links are enriched in two stages:
 - direct NCT enrichment (`pubmed_links`)
@@ -115,6 +116,7 @@ EUCTR (legacy EU register) controls (optional):
 - `EUCTR_PROGRESS_EVERY_PAGES=1` print page-level progress (set `0` to disable)
 - `EUCTR_STALL_SECONDS=900` autostop if no new rows for N seconds
 - `EUCTR_MAX_EMPTY_PAGES=50` autostop after N consecutive pages with 0 PDAC candidates (per term)
+- `EUCTR_MAX_NO_NEW_PAGES=2000` autostop after N consecutive pages with 0 new PDAC candidates (per term)
 
 
 
@@ -318,7 +320,7 @@ Predictive models should use features available at trial start (e.g., phase, spo
 - `clinical_trials_ml_ready` stores the deduplicated ML-ready table used by the UI and dataset exports.
 - `pubmed_search_cache` and `pubmed_summary_cache` persist PubMed query/results cache so future ingestion runs reuse prior lookups instead of repeating network calls.
 - Both tables are linked 1:1 via `nct_id`.
-- In the dashboard Quick filters bar, `Origin` lets you filter by source (`clinicaltrials.gov`, `ctis`, or merged `clinicaltrials.gov+ctis`).
+- In the dashboard Quick filters bar, `Origin` lets you filter by source (e.g., `clinicaltrials.gov`, `ctis`, `euctr`, and merged combinations).
 - In Explorer, `Trial ID` is the primary row ID and `NCT ID` is shown explicitly as a separate column.
 - CTIS rows that map to an existing NCT (via CTIS secondary NCT ID) are automatically merged to avoid duplicates.
 - In Explorer, table text selection/copy with mouse is enabled (AgGrid text selection).
@@ -330,7 +332,7 @@ Below is what each field stores, expected values/patterns, and one quick example
 | Column | What it is | Possible values / format |
 |---|---|---|
 | `nct_id` | Primary trial key in this dataset | `NCT...` for ClinicalTrials.gov or `YYYY-NNNNNN-NN-NN` for CTIS |
-| `source` | Source registry for the row | `clinicaltrials.gov`, `ctis`, `clinicaltrials.gov+ctis` |
+| `source` | Source registry for the row | `clinicaltrials.gov`, `ctis`, `euctr`, or merged combinations |
 | `secondary_id` | Optional alternate registry ID(s) | May include `NCT...` and/or EU CTIS codes |
 | `trial_link` | Direct URL to the source trial page | ClinicalTrials.gov or CTIS URL |
 | `title` | Brief trial title | Free text |
