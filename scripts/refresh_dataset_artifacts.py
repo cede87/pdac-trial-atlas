@@ -420,6 +420,25 @@ def main() -> None:
         raise ValueError(f"Missing columns for modeling view: {missing}")
     model_df = model_df[MODEL_VIEW_COLUMNS]
 
+    # Filter to labeled rows only (binary_success_label in {0,1})
+    binary = pd.to_numeric(model_df["binary_success_label"], errors="coerce")
+    labeled_mask = binary.isin([0, 1])
+    model_df = model_df.loc[labeled_mask].copy()
+    model_df["binary_success_label"] = binary.loc[labeled_mask].astype("Int64")
+
+    # Standardize success rate fields when no prior trials
+    sponsor_total = pd.to_numeric(model_df["sponsor_trial_count_total"], errors="coerce")
+    model_df.loc[sponsor_total == 0, "sponsor_success_rate_historical"] = pd.NA
+
+    target_total = pd.to_numeric(model_df["target_trial_count_total"], errors="coerce")
+    model_df.loc[target_total == 0, "target_success_rate_historical"] = pd.NA
+
+    # Remove constant column if it has no variance
+    if "is_phase_1_2_combined" in model_df.columns:
+        phase_combo = pd.to_numeric(model_df["is_phase_1_2_combined"], errors="coerce")
+        if phase_combo.nunique(dropna=True) <= 1:
+            model_df = model_df.drop(columns=["is_phase_1_2_combined"])
+
     # CSV/Parquet output with consistent dtypes
     csv_df = fill_na_for_csv(df)
     csv_path = DATASET_DIR / "pdac-trials.csv"
@@ -431,6 +450,10 @@ def main() -> None:
     model_csv = fill_na_for_csv(model_df)
     model_path = DATASET_DIR / "pdac_trials_modeling_view.csv"
     model_csv.to_csv(model_path, index=False, encoding="utf-8")
+
+    # Clean modeling view (CSV only)
+    clean_path = DATASET_DIR / "pdac_trials_modeling_view_clean.csv"
+    model_csv.to_csv(clean_path, index=False, encoding="utf-8")
 
     # Yearly metrics
     metrics_df = build_yearly_metrics(df)
@@ -456,6 +479,7 @@ def main() -> None:
             str(schema_path),
             str(metrics_path),
             str(model_path),
+            str(clean_path),
         ],
         check=True,
         stdout=sha_path.open("w", encoding="utf-8"),

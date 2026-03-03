@@ -1,0 +1,65 @@
+Modeling View Integrity
+=========================
+Total rows: 2859
+Total columns: 23
+binary_success_label unique values: [0.0, 1.0]
+binary_success_label null count: 2245
+ongoing/unknown trials in modeling view: 1400
+binary_success_label==1: 256
+binary_success_label==0: 358
+class imbalance ratio (majority/minority): 1.40
+
+Leakage Check – Historical Features
+==================================
+Computed using prior trials with start_year < current (recomputed from full dataset).
+Sponsor key used: sponsor_normalized
+Sponsor feature mismatches (computed vs stored):
+  checked: 2856
+  total mismatches: 0
+  last5 mismatches: 0
+  rate mismatches: 140
+Target feature mismatches (computed vs stored):
+  checked: 2856
+  total mismatches: 0
+  last5 mismatches: 0
+  rate mismatches: 111
+
+Indirect Leakage Check
+======================
+Forbidden columns present: []
+
+Historical Feature Stability
+============================
+sponsor_trial_count_total summary: {'min': 0.0, 'p25': 0.0, 'median': 1.0, 'p75': 4.0, 'max': 48.0}
+sponsor_trial_count_total == 0: 1337
+sponsor_trial_count_total <= 1: 1763
+target_trial_count_total summary: {'min': 0.0, 'p25': 0.0, 'median': 0.0, 'p75': 6.0, 'max': 271.0}
+target_trial_count_total == 0: 1700
+target_trial_count_total <= 1: 1910
+sponsor_success_rate_historical summary: {'min': 0.0, 'p25': 0.0, 'median': 0.5, 'p75': 1.0, 'max': 1.0}
+sponsor_success_rate_historical null count: 2002
+sponsor_success_rate_historical == 0: 291
+
+Feature Variance and Constant Columns
+=====================================
+numeric features checked: ['binary_success_label', 'country_count', 'is_combination_therapy', 'is_multi_center', 'is_multi_country', 'is_novel_target', 'is_phase_1_2_combined', 'is_randomized', 'is_top_10_sponsor', 'num_arms', 'phase_numeric', 'sponsor_success_rate_historical', 'sponsor_trial_count_last_5y', 'sponsor_trial_count_total', 'start_year', 'target_success_rate_historical', 'target_trial_count_last_5y', 'target_trial_count_total']
+constant columns: ['is_phase_1_2_combined']
+near-zero variance columns: []
+
+Phase and Sponsor Sanity Check
+===============================
+Success rate by phase_numeric: {'0.5': 0.17647058823529413, '1': 0.4010416666666667, '2': 0.413953488372093, '3': 0.54, '4': 0.3}
+Success rate by sponsor_type: {'academic': 0.367601246105919, 'big_pharma': 0.5517241379310345, 'biotech': 0.36363636363636365, 'unknown': 0.5113636363636364}
+Success rate by target_category: {'behavioral': 0.625, 'biological': 0.35, 'combination_product': 0.0, 'device': 0.5217391304347826, 'diagnostic_test': 0.5, 'dietary_supplement': 0.25, 'drug': 0.43256997455470736, 'genetic': 0.5555555555555556, 'other': 0.5, 'procedure': 0.21621621621621623, 'radiation': 0.3333333333333333}
+
+Mean duration_months (full dataset)
+===================================
+Success mean duration_months: 46.24875536480687
+Failure mean duration_months: 34.82715542521994
+
+Summary Assessment
+==================
+Temporal leakage safe: YES
+Class imbalance ratio: 1.40
+Historical features informative (variance present): YES
+Structural red flags: CHECK DETAILS ABOVE
