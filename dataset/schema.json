@@ -1,7 +1,7 @@
 {
   "name": "PDAC Trial Atlas dataset",
   "version": "1.6",
-  "generated_at_utc": "2026-03-02 11:21:26Z",
+  "generated_at_utc": "2026-03-03 09:54:19Z",
   "files": {
     "pdac-trials.csv": {
       "path": "pdac-trials.csv",
@@ -20,6 +20,11 @@
       "path": "pdac_yearly_metrics.csv",
       "format": "csv",
       "rows": 28
+    },
+    "pdac_trials_modeling_view.csv": {
+      "path": "pdac_trials_modeling_view.csv",
+      "format": "csv",
+      "rows": 2859
     }
   },
   "columns": [
@@ -115,7 +120,7 @@
     },
     {
       "name": "publication_lag_days",
-      "type": "string",
+      "type": "number",
       "description": "Publication date minus primary completion date, non-negative."
     },
     {
@@ -125,12 +130,12 @@
     },
     {
       "name": "dead_end",
-      "type": "string",
+      "type": "boolean",
       "description": "yes when phase>=2, terminal status, no publication, completion older than 5 years."
     },
     {
       "name": "publication_count",
-      "type": "string",
+      "type": "number",
       "description": "Count of full-match publication records linked to this trial."
     },
     {
@@ -210,8 +215,8 @@
     },
     {
       "name": "journal_impact_flag",
-      "type": "string",
-      "description": "yes if any linked publication is in a high-impact journal list."
+      "type": "boolean",
+      "description": "1/0 if any linked publication is in a high-impact journal list."
     },
     {
       "name": "sources_list",
@@ -220,7 +225,7 @@
     },
     {
       "name": "source_count",
-      "type": "string",
+      "type": "number",
       "description": "Number of distinct sources merged for this trial."
     },
     {
@@ -240,28 +245,28 @@
     },
     {
       "name": "phase_numeric",
-      "type": "string",
+      "type": "number",
       "description": "Numeric phase (e.g., 1.0, 2.0, 1.5 for Phase I/II)."
     },
     {
       "name": "is_phase_1_2_combined",
-      "type": "string",
-      "description": "yes if Phase I/II combined."
+      "type": "boolean",
+      "description": "1/0 if Phase I/II combined."
     },
     {
       "name": "num_arms",
-      "type": "string",
+      "type": "number",
       "description": "Parsed number of study arms when available."
     },
     {
       "name": "is_randomized",
-      "type": "string",
-      "description": "yes if study design indicates randomization."
+      "type": "boolean",
+      "description": "1/0 if study design indicates randomization."
     },
     {
       "name": "is_multi_center",
-      "type": "string",
-      "description": "yes if study design indicates multi-center."
+      "type": "boolean",
+      "description": "1/0 if study design indicates multi-center."
     },
     {
       "name": "intervention_type",
@@ -270,53 +275,53 @@
     },
     {
       "name": "is_combination_therapy",
-      "type": "string",
-      "description": "yes if multiple intervention types or combination phrasing."
+      "type": "boolean",
+      "description": "1/0 if multiple intervention types or combination phrasing."
     },
     {
       "name": "country_count",
-      "type": "string",
+      "type": "number",
       "description": "Unique country count derived from locations."
     },
     {
       "name": "is_multi_country",
-      "type": "string",
-      "description": "yes if country_count > 1."
+      "type": "boolean",
+      "description": "1/0 if country_count > 1."
     },
     {
       "name": "start_year",
-      "type": "string",
+      "type": "number",
       "description": "Year derived from admission_date."
     },
     {
       "name": "completion_year",
-      "type": "string",
+      "type": "number",
       "description": "Year derived from primary_completion_date."
     },
     {
       "name": "duration_months",
-      "type": "string",
+      "type": "number",
       "description": "Months between admission_date and primary_completion_date (non-negative)."
     },
     {
       "name": "publication_delay_months",
-      "type": "string",
+      "type": "number",
       "description": "Months between primary_completion_date and publication_date (non-negative)."
     },
     {
       "name": "years_since_start",
-      "type": "string",
+      "type": "number",
       "description": "Years from start_year to dataset generation year."
     },
     {
       "name": "is_post_2015",
-      "type": "string",
-      "description": "yes if start_year >= 2015."
+      "type": "boolean",
+      "description": "1/0 if start_year >= 2015."
     },
     {
       "name": "has_publication",
-      "type": "string",
-      "description": "yes/no based on full-match publications."
+      "type": "boolean",
+      "description": "1/0 indicator derived from full-match publications."
     },
     {
       "name": "target_primary",
@@ -335,68 +340,73 @@
     },
     {
       "name": "binary_success_label",
-      "type": "string",
+      "type": "number",
       "description": "Binary outcome label: 1=success, 0=failure, NA otherwise."
     },
     {
       "name": "sponsor_trial_count_total",
-      "type": "string",
+      "type": "number",
       "description": "Prior trials for sponsor (start_year < current)."
     },
     {
       "name": "sponsor_trial_count_last_5y",
-      "type": "string",
+      "type": "number",
       "description": "Prior trials for sponsor in last 5 years."
     },
     {
       "name": "sponsor_success_rate_historical",
-      "type": "string",
+      "type": "number",
       "description": "Historical sponsor success rate (success vs failure)."
     },
     {
       "name": "is_top_10_sponsor",
-      "type": "string",
-      "description": "yes if sponsor is in top 10 by prior count."
+      "type": "boolean",
+      "description": "1/0 if sponsor is in top 10 by prior count."
     },
     {
       "name": "target_trial_count_total",
-      "type": "string",
+      "type": "number",
       "description": "Prior trials for target (start_year < current)."
     },
     {
       "name": "target_trial_count_last_5y",
-      "type": "string",
+      "type": "number",
       "description": "Prior trials for target in last 5 years."
     },
     {
       "name": "target_success_rate_historical",
-      "type": "string",
+      "type": "number",
       "description": "Historical target success rate (success vs failure)."
     },
     {
       "name": "is_novel_target",
-      "type": "string",
-      "description": "yes if no prior trials for target."
+      "type": "boolean",
+      "description": "1/0 if no prior trials for target."
     },
     {
       "name": "target_literature_count_last_5y",
-      "type": "string",
+      "type": "number",
       "description": "Prior linked publications in last 5 years for target."
     },
     {
       "name": "literature_trial_ratio",
-      "type": "string",
+      "type": "number",
       "description": "Literature/trial ratio for last 5 years."
     },
     {
       "name": "is_literature_rich_trial_sparse",
-      "type": "string",
-      "description": "yes if literature is high and trials are sparse."
+      "type": "boolean",
+      "description": "1/0 if literature is high and trials are sparse."
     },
     {
       "name": "llm_context_block",
       "type": "string",
       "description": "Plain-text context block for LLM use."
+    },
+    {
+      "name": "feature_temporal_scope",
+      "type": "string",
+      "description": "JSON map of engineered feature -> temporal scope (pre_start/static/post_outcome)."
     }
   ]
 }

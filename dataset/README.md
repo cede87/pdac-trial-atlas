@@ -31,6 +31,7 @@ Notes:
 ## Files
 - `pdac-trials.csv` — UTF-8 CSV (ML-ready, deduplicated).
 - `pdac-trials.parquet` — Parquet version of the same table (useful for analytics).
+- `pdac_trials_modeling_view.csv` — modeling-safe feature subset (pre-start features only).
 - `schema.json` — machine-readable schema for `pdac-trials.csv`.
 - `pdac_yearly_metrics.csv` — yearly aggregates for trend analysis.
 
@@ -73,6 +74,7 @@ Notes:
 | therapeutic_class | string | Normalized therapeutic class. |
 | focus_tags | string | Comma-separated focus tags. |
 | pdac_match_reason | string | Reason why trial matched PDAC cohort. |
+| feature_temporal_scope | string | JSON map of engineered feature → temporal scope (pre_start/static/post_outcome). |
 
 ## ML-ready additional fields
 | Column | Type | Description |
@@ -117,6 +119,21 @@ Notes:
 | is_literature_rich_trial_sparse | string | yes if literature is high and trials are sparse. |
 | llm_context_block | string | Plain-text block for LLM context and summarization. |
 
+## Modeling-safe view (`pdac_trials_modeling_view.csv`)
+This file includes **only pre-start features** and the outcome label needed for supervised learning.
+It excludes post-outcome and leakage-prone fields (publications, lag, evidence strength, etc.).
+
+## Data type normalization
+To make modeling safer and consistent across CSV/Parquet:
+- Boolean fields are encoded as `1`/`0` (or `NA`).
+- Numeric fields are exported as numbers in Parquet and numeric strings in CSV.
+
+## Feature temporal scope
+`feature_temporal_scope` is a JSON map labeling engineered fields as:
+- `pre_start`: safe to use for prediction at trial start.
+- `post_outcome`: derived from or after outcomes (avoid for prediction).
+- `static`: identifiers/metadata.
+
 ## Yearly metrics schema (`pdac_yearly_metrics.csv`)
 | Column | Type | Description |
 |---|---|---|
@@ -144,7 +161,7 @@ Notes:
 5. Generate ML-ready dataset (`pdac-trials.csv`) with deduplication and engineered features.
 6. Export CSV/Parquet with schema metadata.
 7. Generate yearly metrics.
-8. Generation timestamp (UTC): 2026-03-02 11:21:54Z
+8. Generation timestamp (UTC): 2026-03-03 09:54:43Z
 
 ## License
 This dataset is released under CC BY 4.0. See `LICENSE-CC-BY-4.0.txt`.
