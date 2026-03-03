@@ -32,6 +32,7 @@ Notes:
 - `pdac-trials.csv` — UTF-8 CSV (ML-ready, deduplicated).
 - `pdac-trials.parquet` — Parquet version of the same table (useful for analytics).
 - `pdac_trials_modeling_view.csv` — modeling-safe feature subset (pre-start features only).
+- `pdac_trials_modeling_view_clean.csv` — filtered modeling view with label-complete rows only.
 - `schema.json` — machine-readable schema for `pdac-trials.csv`.
 - `pdac_yearly_metrics.csv` — yearly aggregates for trend analysis.
 
