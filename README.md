@@ -35,7 +35,7 @@ During ingestion, PubMed links are enriched in two stages:
 Legacy PubMed enrichment control:
 - `PUBMED_LOOKUP_LIMIT=1000` increase direct NCT PubMed enrichment scope
 
-Publication-index controls (v1.4):
+Publication-index controls (v1.5):
 - `PUBMED_NCT_LOOKUP_LIMIT=400` max NCT exact lookups into PubMed
 - `PUBMED_TITLE_LOOKUP_LIMIT=300` max title-fallback lookups
 - `PUBMED_DOI_LOOKUP_LIMIT=200` max DOI lookups
@@ -106,6 +106,9 @@ CTIS controls (optional):
 - `CTIS_PROGRESS_EVERY_DETAILS=25` print detail progress every N trials
 - `CTIS_STALL_SECONDS=900` autostop if no new PDAC matches for N seconds
 
+ClinicalTrials.gov controls (optional):
+- `INGEST_CTGOV=0` skip ClinicalTrials.gov ingestion for a run
+
 EUCTR (legacy EU register) controls (optional):
 - `INGEST_EUCTR=0` skip EUCTR ingestion for a run
 - `EUCTR_QUERY_TERMS=pancreatic,pancreas` to set custom EUCTR search terms
@@ -117,8 +120,8 @@ EUCTR (legacy EU register) controls (optional):
 - `EUCTR_STALL_SECONDS=900` autostop if no new rows for N seconds
 - `EUCTR_MAX_EMPTY_PAGES=50` autostop after N consecutive pages with 0 PDAC candidates (per term)
 - `EUCTR_MAX_NO_NEW_PAGES=2000` autostop after N consecutive pages with 0 new PDAC candidates (per term)
-
-
+- `EUCTR_CACHE=1` enable cached page downloads (set `0` to disable)
+- `EUCTR_CACHE_DIR=/path/to/cache` override cache location (default: `.cache/euctr`)
 
 ### Identifier model (important)
 
@@ -130,15 +133,15 @@ EUCTR (legacy EU register) controls (optional):
   - `NA` when not available
 - `secondary_id` is still stored internally for lineage/correlation, but is no longer shown in the main table.
 
-### Cross-source de-duplication (CTIS ↔ ClinicalTrials.gov)
+### Cross-source de-duplication (CTIS/EUCTR ↔ ClinicalTrials.gov)
 
-During ingestion, if a CTIS trial has `secondary_id = NCT...` and that NCT exists in the dataset:
+During ingestion, if a CTIS or EUCTR trial has `secondary_id` containing an `NCT...` and that NCT exists in the dataset:
 
-1. CTIS row is merged into the NCT row.
-2. Source becomes `clinicaltrials.gov+ctis`.
-3. CTIS identifier is kept as alternate id in `secondary_id`.
+1. The EU registry row is merged into the NCT row.
+2. Source becomes `clinicaltrials.gov+ctis`, `clinicaltrials.gov+euctr`, or `clinicaltrials.gov+ctis+euctr`.
+3. The EU registry identifier is kept as alternate id in `secondary_id`.
 4. Source links are merged in `trial_link` (`ctgov | ctis`).
-5. CTIS duplicate row is removed.
+5. The duplicate EU row is removed.
 
 This prevents duplicate entries for the same trial across registries.
 
@@ -235,7 +238,7 @@ WHERE publication_lag_days < 0;
 
 Expected result: `0`.
 
-## Signal extraction (v1.4)
+## Signal extraction (v1.5)
 
 The dataset now computes four signal fields focused on trial evidence quality:
 
@@ -342,7 +345,7 @@ The modeling-safe export uses **only `pre_start` features**.
 - `clinical_trials_ml_ready` stores the deduplicated ML-ready table used by the UI and dataset exports.
 - `pubmed_search_cache` and `pubmed_summary_cache` persist PubMed query/results cache so future ingestion runs reuse prior lookups instead of repeating network calls.
 - Both tables are linked 1:1 via `nct_id`.
-- In the dashboard Quick filters bar, `Origin` lets you filter by source (e.g., `clinicaltrials.gov`, `ctis`, `euctr`, and merged combinations).
+- In the dashboard Quick filters bar, `Origin` lets you filter by source (`clinicaltrials.gov`, `ctis`, `euctr`, or merged `clinicaltrials.gov+ctis` / `clinicaltrials.gov+euctr`).
 - In Explorer, `Trial ID` is the primary row ID and `NCT ID` is shown explicitly as a separate column.
 - CTIS rows that map to an existing NCT (via CTIS secondary NCT ID) are automatically merged to avoid duplicates.
 - In Explorer, table text selection/copy with mouse is enabled (AgGrid text selection).
@@ -354,7 +357,7 @@ Below is what each field stores, expected values/patterns, and one quick example
 | Column | What it is | Possible values / format |
 |---|---|---|
 | `nct_id` | Primary trial key in this dataset | `NCT...` for ClinicalTrials.gov or `YYYY-NNNNNN-NN-NN` for CTIS |
-| `source` | Source registry for the row | `clinicaltrials.gov`, `ctis`, `euctr`, or merged combinations |
+| `source` | Source registry for the row | `clinicaltrials.gov`, `ctis`, `euctr`, `clinicaltrials.gov+ctis`, `clinicaltrials.gov+euctr`, `clinicaltrials.gov+ctis+euctr` |
 | `secondary_id` | Optional alternate registry ID(s) | May include `NCT...` and/or EU CTIS codes |
 | `trial_link` | Direct URL to the source trial page | ClinicalTrials.gov or CTIS URL |
 | `title` | Brief trial title | Free text |
@@ -429,7 +432,7 @@ focus_tags: supportive_outcomes,advanced_disease
 pdac_match_reason: generic_pancreatic_cancer
 ```
 
-## Current normalization notes (v1.4)
+## Current normalization notes (v1.5)
 
 - CTIS uses multiple search terms by default (not only `pancreatic`) to improve capture.
 - CTIS phases are normalized to `PHASE1`, `PHASE2`, `PHASE3`, `PHASE4` (+ combined values).

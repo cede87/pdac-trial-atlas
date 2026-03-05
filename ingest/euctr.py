@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+import os
+from pathlib import Path
 import re
 import time
 from typing import Dict, Iterable, List, Optional
@@ -26,12 +28,21 @@ EUCTR_SUMMARY_URL = "https://www.clinicaltrialsregister.eu/ctr-search/rest/downl
 DEFAULT_EUCTR_QUERY_TERMS = [
     "pancreatic",
     "pancreas",
+    "pancreatic cancer",
+    "pdac",
+    "pancreatic adenocarcinoma",
+    "ductal adenocarcinoma",
+    "pancreatic ductal adenocarcinoma",
+    "pancreatic carcinoma",
+    "pancreatic neoplasm",
 ]
 
 REQUEST_TIMEOUT = 45
 RETRYABLE_STATUS_CODES = {403, 429, 500, 502, 503, 504}
 
 STATUS_RE = re.compile(r"\(([^)]+)\)")
+NCT_RE = re.compile(r"(NCT\d{6,8})", re.IGNORECASE)
+PHASE_RE = re.compile(r"\bphase\s*(i{1,4}|1|2|3|4)\b", re.IGNORECASE)
 
 
 @dataclass
@@ -67,6 +78,32 @@ def _uniq(values: Iterable[str]) -> List[str]:
     return out
 
 
+def _slugify(value: str) -> str:
+    if not value:
+        return "query"
+    slug = re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+    return slug or "query"
+
+
+def _cache_root() -> Path:
+    override = os.getenv("EUCTR_CACHE_DIR", "").strip()
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parents[1] / ".cache" / "euctr"
+
+
+def _cache_path(query: str, page: int) -> Path:
+    return _cache_root() / _slugify(query) / f"page_{page}.txt"
+
+
+def _cache_enabled() -> bool:
+    return os.getenv("EUCTR_CACHE", "1").strip().lower() not in {"0", "false", "no"}
+
+
+def _progress_enabled() -> bool:
+    return os.getenv("EUCTR_PROGRESS", "1").strip().lower() not in {"0", "false", "no"}
+
+
 def _request_summary(query: str, page: int, retries: int = 4) -> str:
     last_error: Optional[Exception] = None
     params = {"query": query, "mode": "current_page", "page": page}
@@ -89,6 +126,19 @@ def _request_summary(query: str, page: int, retries: int = 4) -> str:
     if last_error:
         raise last_error
     return ""
+
+
+def _get_summary_text(query: str, page: int) -> tuple[str, str]:
+    if _cache_enabled():
+        cache_path = _cache_path(query, page)
+        if cache_path.exists():
+            return cache_path.read_text(encoding="utf-8", errors="ignore"), "cache"
+    text = _request_summary(query, page)
+    if _cache_enabled():
+        cache_path = _cache_path(query, page)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(text, encoding="utf-8")
+    return text, "fetch"
 
 
 def parse_summary_text(text: str) -> List[EuctrSummaryRow]:
@@ -203,6 +253,30 @@ def _build_classification_text(row: EuctrSummaryRow) -> str:
     return " ".join([p for p in parts if p])
 
 
+def _extract_nct_ids(text: str) -> List[str]:
+    return _uniq([token.upper() for token in NCT_RE.findall(text or "")])
+
+
+def _normalize_phase(text: str) -> str:
+    if not text:
+        return "NA"
+    match = PHASE_RE.search(text)
+    if not match:
+        return "NA"
+    token = match.group(1).upper()
+    mapping = {
+        "I": "PHASE1",
+        "II": "PHASE2",
+        "III": "PHASE3",
+        "IV": "PHASE4",
+        "1": "PHASE1",
+        "2": "PHASE2",
+        "3": "PHASE3",
+        "4": "PHASE4",
+    }
+    return mapping.get(token, "NA")
+
+
 def iter_euctr_summaries(
     query: str,
     *,
@@ -225,7 +299,7 @@ def iter_euctr_summaries(
     while True:
         if max_pages is not None and page > max_pages:
             break
-        text = _request_summary(query, page)
+        text, source = _get_summary_text(query, page)
         rows = parse_summary_text(text)
         if progress_every_pages and page % progress_every_pages == 0:
             print(
@@ -282,7 +356,6 @@ def iter_euctr_summaries(
                 flush=True,
             )
             return
-
         if not rows:
             break
         for row in rows:
@@ -454,7 +527,11 @@ def iter_trials_euctr_pdac(
 
         classification = classify_study("UNKNOWN", classification_text)
         match_reason = pdac_match_reason(classification_text)
+        nct_tokens = _extract_nct_ids(" ".join([row.sponsor_protocol_number, row.full_title] + row.trial_protocols))
+        secondary_id = ", ".join(nct_tokens)
+        phase_text = " ".join([row.full_title, " ".join(row.trial_protocols)])
         status = _normalize_status(row.trial_protocols)
+        phase = _normalize_phase(phase_text)
         trial_link = row.link or f"https://www.clinicaltrialsregister.eu/ctr-search/search?query=eudract_number:{row.eudract_number}"
 
         brief_summary_parts = []
@@ -466,17 +543,17 @@ def iter_trials_euctr_pdac(
             brief_summary_parts.append(f"Trial Protocols: {' | '.join(row.trial_protocols)}")
         brief_summary = " | ".join(brief_summary_parts)
 
-        yield {
-            "nct_id": row.eudract_number,
-            "source": "euctr",
-            "secondary_id": "",
-            "trial_link": trial_link,
-            "title": row.full_title,
-            "study_type": "UNKNOWN",
-            "phase": "NA",
-            "status": status,
-            "sponsor": row.sponsor_name or "Unknown",
-            "pdac_match_reason": match_reason,
+    yield {
+        "nct_id": row.eudract_number,
+        "source": "euctr",
+        "secondary_id": secondary_id,
+        "trial_link": trial_link,
+        "title": row.full_title,
+        "study_type": "UNKNOWN",
+        "phase": phase,
+        "status": status,
+        "sponsor": row.sponsor_name or "Unknown",
+        "pdac_match_reason": match_reason,
             "study_design": classification["study_design"],
             "therapeutic_class": classification["therapeutic_class"],
             "focus_tags": ",".join(classification["focus"]) if classification["focus"] else "",
@@ -494,6 +571,6 @@ def iter_trials_euctr_pdac(
             "inclusion_criteria": "",
             "exclusion_criteria": "",
             "locations": "",
-            "brief_summary": brief_summary,
-            "detailed_description": "",
-        }
+        "brief_summary": brief_summary,
+        "detailed_description": "",
+    }
