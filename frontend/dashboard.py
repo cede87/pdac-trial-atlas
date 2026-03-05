@@ -212,60 +212,108 @@ def load_trials(cache_buster: float = 0.0) -> pd.DataFrame:
 
     conn = sqlite3.connect(DB_PATH)
     try:
+        table_exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='clinical_trials_ml_ready'"
+        ).fetchone()
         try:
-            df = pd.read_sql_query(
-                """
-                SELECT
-                    c.nct_id,
-                    c.source,
-                    c.secondary_id,
-                    c.trial_link,
-                    c.title,
-                    c.study_type,
-                    c.study_design,
-                    c.phase,
-                    c.status,
-                    c.sponsor,
-                    c.admission_date,
-                    c.last_update_date,
-                    c.primary_completion_date,
-                    c.has_results,
-                    c.results_last_update,
-                    c.pubmed_links,
-                    c.publication_date,
-                    c.publication_lag_days,
-                    COALESCE(pub.publication_count, 0) AS publication_count,
-                    COALESCE(pub.match_methods, 'NA') AS publication_match_methods,
-                    c.evidence_strength,
-                    c.dead_end,
-                    c.intervention_types,
-                    c.therapeutic_class,
-                    c.focus_tags,
-                    c.pdac_match_reason,
-                    d.conditions,
-                    d.interventions,
-                    d.primary_outcomes,
-                    d.secondary_outcomes,
-                    d.inclusion_criteria,
-                    d.exclusion_criteria,
-                    d.locations,
-                    d.brief_summary,
-                    d.detailed_description
-                FROM clinical_trials c
-                LEFT JOIN clinical_trial_details d ON d.nct_id = c.nct_id
-                LEFT JOIN (
+            if table_exists:
+                df = pd.read_sql_query(
+                    """
                     SELECT
                         nct_id,
-                        COUNT(*) AS publication_count,
-                        GROUP_CONCAT(DISTINCT match_method) AS match_methods
-                    FROM trial_publications
-                    WHERE LOWER(COALESCE(is_full_match, 'yes')) = 'yes'
-                    GROUP BY nct_id
-                ) pub ON pub.nct_id = c.nct_id
-                ORDER BY c.nct_id
-                """,
-                conn,
-            )
+                        source,
+                        secondary_id,
+                        trial_link,
+                        title,
+                        study_type,
+                        study_design,
+                        phase,
+                        status,
+                        sponsor,
+                        admission_date,
+                        last_update_date,
+                        primary_completion_date,
+                        has_results,
+                        results_last_update,
+                        pubmed_links,
+                        publication_date,
+                        publication_lag_days,
+                        publication_count,
+                        publication_match_methods,
+                        evidence_strength,
+                        dead_end,
+                        intervention_types,
+                        therapeutic_class,
+                        focus_tags,
+                        pdac_match_reason,
+                        conditions,
+                        interventions,
+                        primary_outcomes,
+                        secondary_outcomes,
+                        inclusion_criteria,
+                        exclusion_criteria,
+                        locations,
+                        brief_summary,
+                        detailed_description
+                    FROM clinical_trials_ml_ready
+                    ORDER BY nct_id
+                    """,
+                    conn,
+                )
+            else:
+                df = pd.read_sql_query(
+                    """
+                    SELECT
+                        c.nct_id,
+                        c.source,
+                        c.secondary_id,
+                        c.trial_link,
+                        c.title,
+                        c.study_type,
+                        c.study_design,
+                        c.phase,
+                        c.status,
+                        c.sponsor,
+                        c.admission_date,
+                        c.last_update_date,
+                        c.primary_completion_date,
+                        c.has_results,
+                        c.results_last_update,
+                        c.pubmed_links,
+                        c.publication_date,
+                        c.publication_lag_days,
+                        COALESCE(pub.publication_count, 0) AS publication_count,
+                        COALESCE(pub.match_methods, 'NA') AS publication_match_methods,
+                        c.evidence_strength,
+                        c.dead_end,
+                        c.intervention_types,
+                        c.therapeutic_class,
+                        c.focus_tags,
+                        c.pdac_match_reason,
+                        d.conditions,
+                        d.interventions,
+                        d.primary_outcomes,
+                        d.secondary_outcomes,
+                        d.inclusion_criteria,
+                        d.exclusion_criteria,
+                        d.locations,
+                        d.brief_summary,
+                        d.detailed_description
+                    FROM clinical_trials c
+                    LEFT JOIN clinical_trial_details d ON d.nct_id = c.nct_id
+                    LEFT JOIN (
+                        SELECT
+                            nct_id,
+                            COUNT(*) AS publication_count,
+                            GROUP_CONCAT(DISTINCT match_method) AS match_methods
+                        FROM trial_publications
+                        WHERE LOWER(COALESCE(is_full_match, 'yes')) = 'yes'
+                        GROUP BY nct_id
+                    ) pub ON pub.nct_id = c.nct_id
+                    ORDER BY c.nct_id
+                    """,
+                    conn,
+                )
         except Exception as exc:
             if not any(
                 token in str(exc).lower()

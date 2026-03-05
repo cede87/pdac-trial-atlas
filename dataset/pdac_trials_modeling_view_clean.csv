@@ -1,0 +1,615 @@
+trial_uid,binary_success_label,start_year,phase_numeric,num_arms,is_randomized,is_multi_center,country_count,is_multi_country,intervention_type,is_combination_therapy,sponsor_type,sponsor_trial_count_total,sponsor_trial_count_last_5y,sponsor_success_rate_historical,is_top_10_sponsor,target_primary,target_category,target_trial_count_total,target_trial_count_last_5y,target_success_rate_historical,is_novel_target
+NCT00003085,0,1999,2,NA,0,0,1,0,PROCEDURE,0,academic,0,0,NA,0,laparoscopy,procedure,0,0,NA,1
+NCT00003434,0,1999,1,NA,0,0,1,0,BIOLOGICAL,0,academic,0,0,NA,0,carcinoembryonic antigen peptide 1,biological,0,0,NA,1
+NCT00003531,0,1999,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,antineoplaston therapy atengenal astugenal,drug,0,0,NA,1
+NCT00003851,0,1999,NA,NA,0,0,1,0,BIOLOGICAL,1,academic,0,0,NA,0,proteolytic enzymes,biological,0,0,NA,1
+NCT00027521,0,2001,1,NA,0,0,NA,0,BIOLOGICAL,1,biotech,0,0,NA,0,bleomycin sulfate,biological,0,0,NA,1
+NCT00030732,1,2002,3,NA,0,0,4,1,DRUG,0,academic,0,0,NA,0,gemcitabine capecitabine,drug,0,0,NA,1
+NCT00031837,0,2002,3,NA,0,0,1,0,DRUG,1,unknown,0,0,NA,0,dalteparin,drug,0,0,NA,1
+NCT00040183,1,2002,3,NA,0,0,17,1,DRUG,0,biotech,0,0,NA,0,tarceva erlotinib hcl osi 774,drug,0,0,NA,1
+NCT00051467,1,2003,3,NA,0,0,1,0,GENETIC,0,unknown,0,0,NA,0,tnferade,genetic,0,0,NA,1
+NCT00058201,1,2003,3,NA,0,0,13,1,DRUG,1,academic,0,0,NA,0,fluorouracil,drug,4,4,NA,0
+NCT00066677,0,2003,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,rhumab vegf,drug,0,0,NA,1
+NCT00088894,1,2004,3,NA,0,0,1,0,DRUG,1,academic,8,8,NA,1,gemcitabine hydrochloride,drug,9,9,NA,0
+NCT00094445,1,2004,2,NA,0,0,1,0,DRUG,0,academic,3,3,NA,1,curcumin,drug,0,0,NA,1
+NCT00112658,1,2005,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,fluorouracil,drug,6,6,1,0
+NCT00112697,1,2005,2,NA,0,0,1,0,DRUG,1,unknown,0,0,NA,0,cisplatin,drug,3,1,NA,0
+NCT00113256,0,2005,2,NA,0,0,1,0,DRUG,0,biotech,1,1,NA,0,rubitecan,drug,0,0,NA,1
+NCT00114179,1,2005,2,NA,0,0,1,0,DRUG,1,academic,12,12,1,1,capecitabine,drug,1,1,NA,0
+NCT00121745,0,2005,1,NA,0,0,1,0,GENETIC,0,biotech,0,0,NA,0,rexin g dose 1,genetic,0,0,NA,1
+NCT00126633,1,2005,2,NA,0,0,1,0,BIOLOGICAL,1,academic,0,0,NA,0,bevacizumab,biological,1,1,NA,0
+NCT00159471,0,2005,NA,NA,0,0,1,0,DRUG,0,academic,1,0,0,0,capecitabine gemcitabine docetaxel,drug,0,0,NA,1
+NCT00176735,0,2005,NA,NA,0,0,NA,0,DRUG,0,academic,0,0,NA,0,capecitabine,drug,1,1,NA,0
+NCT00177853,0,2005,1,NA,0,0,1,0,DRUG,1,academic,2,1,NA,0,celecoxib,drug,1,1,NA,0
+NCT00201838,1,2005,1,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,gemcitabine,drug,2,2,NA,0
+NCT00203892,1,2005,1,NA,0,0,1,0,BIOLOGICAL,0,academic,1,1,NA,0,modified cea peptide 10mcg,biological,0,0,NA,1
+NCT00209677,0,2005,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine,drug,2,2,NA,0
+NCT00219557,1,2005,2,NA,0,0,8,1,DRUG,0,big_pharma,2,2,NA,1,gemcitabine,drug,2,2,NA,0
+NCT00226746,0,2005,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,paclitaxel and gemcitabine,drug,0,0,NA,1
+NCT00253526,0,2005,2,NA,0,0,NA,0,DRUG,1,academic,12,12,1,1,bevacizumab,drug,1,1,NA,0
+NCT00262951,0,2005,2,NA,0,0,1,0,BIOLOGICAL,1,academic,0,0,NA,0,recombinant interferon alfa,biological,1,1,NA,0
+NCT00265876,1,2005,1,NA,0,0,1,0,DRUG,0,academic,1,1,NA,0,azd0530,drug,0,0,NA,1
+NCT00276744,0,2006,2,NA,0,0,1,0,BIOLOGICAL,1,academic,0,0,NA,0,cetuximab,biological,2,2,NA,0
+NCT00281996,0,2006,1,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,gemcitabine,drug,8,8,0.667,0
+NCT00307723,0,2006,1,NA,0,0,NA,0,DRUG,1,academic,0,0,NA,0,bevacizumab,drug,6,6,0.5,0
+NCT00310050,0,2006,1,NA,0,0,1,0,DRUG,1,academic,1,1,NA,0,pemetrexed disodium,drug,0,0,NA,1
+NCT00322712,0,2006,NA,NA,0,0,1,0,NA,0,academic,0,0,NA,0,advanced disease,NA,10,10,NA,0
+NCT00326911,0,2006,2,NA,0,0,1,0,BIOLOGICAL,1,big_pharma,3,3,NA,0,cetuximab,biological,2,2,NA,0
+NCT00335543,1,2006,2,NA,0,0,3,1,DRUG,1,unknown,0,0,NA,0,cisplatin,drug,4,1,1,0
+NCT00336700,0,2006,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine,drug,8,8,0.667,0
+NCT00358566,0,2006,3,NA,0,0,12,1,BIOLOGICAL,1,unknown,0,0,NA,0,gv1001,biological,0,0,NA,1
+NCT00364364,0,2006,0.5,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,radiolabeled humanized pam4 igg,drug,0,0,NA,1
+NCT00386399,0,2006,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,mitomycin c,drug,0,0,NA,1
+NCT00395252,1,2006,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,cetuximab erbitux and gemcitabine,drug,0,0,NA,1
+NCT00397787,1,2006,2,NA,0,0,1,0,DRUG,0,academic,14,13,0.667,1,sunitinib malate,drug,0,0,NA,1
+NCT00398086,1,2006,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine,drug,8,8,0.667,0
+NCT00410774,0,2006,1,NA,0,0,1,0,BIOLOGICAL,1,academic,1,1,1,0,bevacizumab,biological,6,6,0.5,0
+NCT00414570,0,2006,0.5,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,18 f flt pet scan,drug,0,0,NA,1
+NCT00415454,0,2006,1,NA,0,0,1,0,GENETIC,0,unknown,0,0,NA,0,ad5 ycd muttksr39rep adp,genetic,0,0,NA,1
+NCT00416793,0,2006,2,NA,0,0,1,0,DRUG,1,academic,14,13,0.667,1,bortezomib,drug,1,1,NA,0
+NCT00417287,0,2006,2,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,px 12,drug,0,0,NA,1
+NCT00426127,0,2007,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,docetaxel,drug,0,0,NA,1
+NCT00429858,0,2007,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,s 1,drug,0,0,NA,1
+NCT00438256,1,2007,1,NA,0,0,1,0,PROCEDURE,1,academic,2,2,0,0,proton beam radiation,procedure,0,0,NA,1
+NCT00456599,1,2007,2,NA,0,0,2,1,DRUG,1,academic,3,3,0,0,gemcitabine,drug,12,12,0.5,0
+NCT00460174,1,2007,2,NA,0,0,1,0,BIOLOGICAL,1,academic,1,1,0,0,bevacizumab,biological,10,10,0.25,0
+NCT00462852,1,2007,2,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,dalteparin,drug,1,1,0,0
+NCT00463840,0,2007,1,NA,0,0,1,0,DRUG,1,unknown,1,0,NA,0,oxaliplatin,drug,3,3,NA,0
+NCT00470535,0,2007,2,NA,0,0,1,0,DRUG,1,academic,1,1,NA,0,erlotinib hydrochloride,drug,4,3,NA,0
+NCT00471146,1,2007,3,NA,0,0,24,1,DRUG,0,big_pharma,3,2,1,0,ag 013736,drug,0,0,NA,1
+NCT00482625,0,2007,2,NA,0,0,1,0,DRUG,1,academic,19,17,0.6,1,erlotinib hydrochloride,drug,4,3,NA,0
+NCT00493441,0,2007,2,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,avn944,drug,0,0,NA,1
+NCT00495924,1,2007,NA,NA,0,0,1,0,PROCEDURE,0,unknown,0,0,NA,0,pancreatic resection pd,procedure,0,0,NA,1
+NCT00497224,1,2007,2,NA,0,0,1,0,DRUG,0,academic,2,2,NA,0,erlotinib,drug,0,0,NA,1
+NCT00498225,1,2007,3,NA,0,0,2,1,DRUG,0,biotech,0,0,NA,0,gemcitabine plus ts 1,drug,0,0,NA,1
+NCT00515866,1,2007,1,NA,0,0,2,1,DRUG,0,big_pharma,2,2,NA,0,ku 0059436 azd2281 parp inhibitor,drug,0,0,NA,1
+NCT00524069,0,2007,NA,NA,0,0,NA,0,BIOLOGICAL,1,academic,1,1,NA,0,bevacizumab,biological,10,10,0.25,0
+NCT00529113,0,2007,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,bardoxolone methyl,drug,0,0,NA,1
+NCT00536614,1,2007,2,NA,0,0,1,0,GENETIC,0,unknown,0,0,NA,0,cetuximab,genetic,7,7,0,0
+NCT00536770,0,2007,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,placebo gemcitabine erlotinib,drug,0,0,NA,1
+NCT00536874,1,2007,2,NA,0,0,1,0,DRUG,1,academic,4,3,NA,1,gemcitabine hydrochloride,drug,14,8,1,0
+NCT00544908,0,2007,2,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,dasatinib,drug,0,0,NA,1
+NCT00550836,1,2007,2,NA,0,0,1,0,BIOLOGICAL,1,academic,4,2,NA,1,panitumumab,biological,0,0,NA,1
+NCT00553813,0,2007,2,NA,0,0,2,1,DRUG,0,biotech,0,0,NA,0,tpi 287,drug,0,0,NA,1
+NCT00556023,1,2007,1,NA,0,0,2,1,DRUG,0,big_pharma,2,2,NA,0,cp 675 206 and gemcitabine,drug,0,0,NA,1
+NCT00557596,0,2007,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,aeg35156,drug,0,0,NA,1
+NCT00561990,1,2007,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,nimotuzumab,drug,0,0,NA,1
+NCT00564720,0,2007,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine,drug,12,12,0.5,0
+NCT00569387,1,2007,2,NA,0,0,1,0,BIOLOGICAL,0,biotech,1,1,NA,0,hyperacute r pancreatic cancer vaccine,biological,0,0,NA,1
+NCT00574275,0,2007,3,NA,0,0,24,1,DRUG,0,big_pharma,2,2,NA,0,aflibercept ziv aflibercept ave0005 vegf trap zaltrap,drug,0,0,NA,1
+NCT00582699,1,2007,NA,NA,0,0,1,0,BEHAVIORAL,0,academic,4,3,NA,1,assessment interview and blood draw,behavioral,0,0,NA,1
+NCT00587132,0,2007,1,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,synthetic human secretin,drug,0,0,NA,1
+NCT00593008,0,2007,1,NA,0,0,1,0,DRUG,0,academic,2,2,0,0,temsirolimus,drug,1,1,NA,0
+NCT00601627,1,2008,2,NA,0,0,1,0,BIOLOGICAL,1,academic,5,3,1,1,panitumumab,biological,1,1,1,0
+NCT00602745,0,2008,3,NA,0,0,17,1,DRUG,0,big_pharma,3,3,0,0,s 1,drug,1,1,0,0
+NCT00614601,0,2008,2,NA,0,0,1,0,BIOLOGICAL,0,biotech,2,2,1,0,hyperacute r pancreatic cancer vaccine,biological,1,1,1,0
+NCT00622622,1,2008,1,NA,0,0,1,0,BIOLOGICAL,0,academic,0,0,NA,0,vegfr2 169 and gemcitabine,biological,0,0,NA,1
+NCT00625586,0,2008,2,NA,0,0,1,0,BIOLOGICAL,1,unknown,0,0,NA,0,rav12,biological,0,0,NA,1
+NCT00634725,1,2008,3,NA,0,0,1,0,DRUG,1,unknown,5,3,NA,1,capecitabine,drug,7,6,0.5,0
+NCT00636883,0,2008,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine,drug,17,17,0.5,0
+NCT00637364,0,2008,1,NA,0,0,1,0,PROCEDURE,0,biotech,0,0,NA,0,high intensity focused ultrasound hifu,procedure,0,0,NA,1
+NCT00637728,0,2008,3,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,megestrol acetate concentrated suspension 110 mg ml,drug,0,0,NA,1
+NCT00640978,0,2008,2,NA,0,0,1,0,DRUG,0,academic,6,4,1,1,rad001,drug,1,1,NA,0
+NCT00642733,0,2008,4,NA,0,0,NA,0,DRUG,0,big_pharma,0,0,NA,0,erlotinib tarceva,drug,0,0,NA,1
+NCT00660348,0,2008,NA,NA,0,0,1,0,DRUG,1,academic,9,9,0,1,morphine sulfate,drug,0,0,NA,1
+NCT00661882,1,2008,NA,NA,0,0,1,0,OTHER,1,academic,1,1,NA,0,medical chart review,other,0,0,NA,1
+NCT00662688,0,2008,3,NA,0,0,1,0,DRUG,0,unknown,5,3,NA,1,dalt parine,drug,0,0,NA,1
+NCT00674973,1,2008,2,NA,0,0,1,0,DRUG,0,big_pharma,0,0,NA,0,erlotinib,drug,1,1,1,0
+NCT00679913,1,2008,3,NA,0,0,1,0,PROCEDURE,0,academic,0,0,NA,0,standard pancreatoduodenectomy,procedure,0,0,NA,1
+NCT00683085,0,2008,1,NA,0,0,1,0,BIOLOGICAL,0,academic,0,0,NA,0,hla a 02 01 restricted vegfr1 derived peptide vaccination,biological,0,0,NA,1
+NCT00684801,1,2008,NA,NA,0,0,1,0,OTHER,1,academic,1,1,NA,0,questionnaire administration,other,0,0,NA,1
+NCT00726037,0,2008,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,ontak,drug,0,0,NA,1
+NCT00728000,0,2008,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,gemcitabine,drug,17,17,0.5,0
+NCT00733850,1,2008,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,kanglaite injection plus gemcitabine,drug,0,0,NA,1
+NCT00769483,1,2008,1,NA,0,0,1,0,DRUG,0,academic,6,4,1,1,mk 0646,drug,0,0,NA,1
+NCT00769652,0,2008,NA,NA,0,0,1,0,BEHAVIORAL,0,academic,0,0,NA,0,medical nutrition therapy,behavioral,0,0,NA,1
+NCT00783172,0,2008,1,NA,0,0,1,0,DRUG,1,academic,2,2,NA,0,gemcitabine,drug,17,17,0.5,0
+NCT00785421,1,2008,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,enoxaparin,drug,0,0,NA,1
+NCT00789633,1,2008,3,NA,0,0,5,1,DRUG,0,unknown,0,0,NA,0,masitinib,drug,0,0,NA,1
+NCT00810719,1,2008,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,erlotinib,drug,1,1,1,0
+NCT00813163,1,2008,2,NA,0,0,2,1,DRUG,0,biotech,0,0,NA,0,pep02,drug,0,0,NA,1
+NCT00831493,0,2009,1,NA,0,0,1,0,RADIATION,1,academic,10,7,0.667,1,chemoradiation radiation therapy,radiation,0,0,NA,1
+NCT00836407,1,2009,1,NA,0,0,1,0,DRUG,1,academic,11,11,0,1,ipilimumab,drug,1,1,NA,0
+NCT00837135,0,2009,1,NA,0,0,NA,0,OTHER,1,academic,0,0,NA,0,screening,other,0,0,NA,1
+NCT00839332,1,2009,1,NA,0,0,6,1,DRUG,0,big_pharma,5,4,0,1,ly2603618,drug,0,0,NA,1
+NCT00841035,0,2009,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,erlotinib,drug,3,3,1,0
+NCT00855634,0,2009,NA,NA,0,0,1,0,PROCEDURE,0,academic,1,1,NA,0,resection of metastases,procedure,0,0,NA,1
+NCT00867126,0,2009,0.5,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,pioglitazone hydrochloride,drug,0,0,NA,1
+NCT00868114,0,2009,2,NA,0,0,1,0,BIOLOGICAL,0,academic,0,0,NA,0,klh pulsed autologous dendritic cell vaccine,biological,0,0,NA,1
+NCT00878657,0,2009,1,NA,0,0,1,0,DRUG,1,academic,1,1,0,0,gemcitabine hydrochloride,drug,20,11,1,0
+NCT00882765,0,2009,2,NA,0,0,1,0,DIETARY_SUPPLEMENT,0,academic,0,0,NA,0,genistein,dietary_supplement,1,1,NA,0
+NCT00889187,0,2009,1,NA,0,0,1,0,RADIATION,1,academic,4,4,NA,1,neoadjuvant short course photon radiation,radiation,0,0,NA,1
+NCT00898781,0,2009,NA,NA,0,0,1,0,NA,0,academic,1,1,0,0,advanced disease,NA,55,55,0,0
+NCT00899132,0,2009,NA,NA,0,0,1,0,GENETIC,1,academic,2,2,1,0,in situ hybridization,genetic,0,0,NA,1
+NCT00902291,1,2009,2,NA,0,0,5,1,BIOLOGICAL,0,biotech,0,0,NA,0,ags 1c4d4,biological,0,0,NA,1
+NCT00919282,1,2009,2,NA,0,0,1,0,DRUG,0,unknown,2,2,1,0,gemcitabine folinic acid 5 fu,drug,0,0,NA,1
+NCT00922896,1,2009,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,gemcitabine cisplatin erlotinib tarceva,drug,0,0,NA,1
+NCT00923299,1,2009,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,cetuximab,drug,10,9,0.333,0
+NCT00936104,1,2009,NA,NA,0,0,1,0,NA,0,academic,0,0,NA,0,surgical,NA,2,2,NA,0
+NCT00954525,1,2009,1,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,gemcitabine and erlotinib,drug,0,0,NA,1
+NCT00965718,1,2009,2,NA,0,0,1,0,BIOLOGICAL,0,biotech,0,0,NA,0,activated t lymphocyte,biological,0,0,NA,1
+NCT00966277,1,2009,4,NA,0,0,1,0,DRUG,0,academic,10,7,0.667,1,dalteparin,drug,2,1,0.5,0
+NCT00968604,0,2009,1,NA,0,0,NA,0,GENETIC,0,academic,10,7,0.667,1,bikdd nanoparticle,genetic,0,0,NA,1
+NCT00994721,1,2008,NA,NA,0,0,1,0,NA,0,academic,1,1,NA,0,resectable disease,NA,3,3,NA,0
+NCT00998322,1,2009,2,NA,0,0,1,0,BIOLOGICAL,1,biotech,0,0,NA,0,reolysin,biological,0,0,NA,1
+NCT01013649,1,2009,3,NA,0,0,4,1,RADIATION,1,academic,24,16,0.5,1,3 dimensional conformal radiation therapy,radiation,1,1,NA,0
+NCT01016483,1,2009,1,NA,0,0,2,1,DRUG,0,unknown,0,0,NA,0,pimasertib,drug,0,0,NA,1
+NCT01017822,0,2009,1,NA,0,0,NA,0,BIOLOGICAL,1,unknown,1,0,NA,0,conatumumab,biological,0,0,NA,1
+NCT01019382,1,2009,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,lipidem fish oil infusion gemcitabine chemotherapy,drug,0,0,NA,1
+NCT01025570,0,2009,1,NA,0,0,1,0,DRUG,0,academic,3,3,0.5,0,gemcitabine bosutinib,drug,0,0,NA,1
+NCT01025882,0,2009,1,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,gemcitabine hydrochloride,drug,20,11,1,0
+NCT01027221,1,2009,NA,NA,0,0,1,0,RADIATION,0,academic,0,0,NA,0,neoadjuvant photon radiation,radiation,0,0,NA,1
+NCT01042028,0,2010,1,NA,1,0,1,0,DRUG,0,unknown,0,0,NA,0,everolimus cetuximab irinotecan,drug,0,0,NA,1
+NCT01050283,0,2010,1,NA,0,0,NA,0,PROCEDURE,0,big_pharma,0,0,NA,0,comparator 18f fdg pet ct and volumetric ct,procedure,0,0,NA,1
+NCT01050426,0,2009,2,NA,0,0,1,0,OTHER,0,unknown,1,1,NA,0,uft leucovorin,other,0,0,NA,1
+NCT01056601,0,2010,2,NA,0,0,1,0,DRUG,0,academic,1,1,0,0,bortezomib,drug,2,1,0,0
+NCT01064622,1,2010,2,NA,0,0,1,0,DRUG,1,academic,25,13,0.571,1,gemcitabine hydrochloride,drug,22,10,0.5,0
+NCT01068327,1,2010,1,NA,0,0,1,0,DRUG,1,academic,2,1,1,0,gemcitabine hydrochloride,drug,22,10,0.5,0
+NCT01072981,1,2010,3,NA,0,0,1,0,BIOLOGICAL,1,biotech,3,3,0.5,0,hyperacute pancreas immunotherapy,biological,0,0,NA,1
+NCT01080248,0,2010,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,gemcitabine,drug,27,25,0.364,0
+NCT01086332,0,2010,1,NA,0,0,NA,0,DRUG,0,academic,1,1,0,0,nelfinavir,drug,0,0,NA,1
+NCT01092689,0,2010,1,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,phip,drug,0,0,NA,1
+NCT01094626,0,2010,NA,NA,0,0,NA,0,DRUG,0,unknown,0,0,NA,0,secretin,drug,0,0,NA,1
+NCT01096732,0,2010,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gdc 0449,drug,0,0,NA,1
+NCT01108458,0,2010,2,NA,0,0,1,0,DRUG,0,unknown,2,2,NA,0,pertuzumab,drug,0,0,NA,1
+NCT01121848,1,2010,3,NA,1,0,1,0,DRUG,0,big_pharma,4,4,0,0,leucovorin,drug,0,0,NA,1
+NCT01130142,1,2010,1,NA,0,0,2,1,DRUG,0,biotech,0,0,NA,0,ipi 926 plus gemcitabine,drug,0,0,NA,1
+NCT01144455,1,2010,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemzar gemcitabine,drug,0,0,NA,1
+NCT01150630,1,2010,2,NA,0,0,1,0,DRUG,0,unknown,3,3,NA,0,capecitabine,drug,15,14,0.667,0
+NCT01167738,0,2010,2,NA,0,0,1,0,DRUG,0,unknown,3,3,NA,0,capecitabine,drug,15,14,0.667,0
+NCT01167816,0,2010,1,NA,0,0,1,0,DRUG,0,academic,1,1,NA,0,vidaza,drug,0,0,NA,1
+NCT01192763,0,2010,1,NA,0,0,1,0,DRUG,1,academic,25,13,0.571,1,gamma secretase notch signalling pathway inhibitor ro4929097,drug,0,0,NA,1
+NCT01198522,0,2010,1,NA,0,0,2,1,DRUG,1,unknown,0,0,NA,0,l19il2 monoclonal antibody cytokine fusion protein in combination with gemcitabine,drug,0,0,NA,1
+NCT01204372,1,2010,2,NA,0,0,1,0,DRUG,0,unknown,1,1,1,0,gemcitabine trastuzumab erlotinib,drug,0,0,NA,1
+NCT01206296,0,2010,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,intraperitoneal gemcitabine,drug,0,0,NA,1
+NCT01210911,1,2010,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine,drug,27,25,0.364,0
+NCT01231581,1,2010,2,NA,0,0,2,1,DRUG,0,big_pharma,0,0,NA,0,gsk1120212,drug,0,0,NA,1
+NCT01280058,1,2011,2,NA,0,0,1,0,DRUG,1,academic,29,15,0.556,1,carboplatin,drug,0,0,NA,1
+NCT01294358,1,2011,1,NA,0,0,1,0,DRUG,0,academic,29,15,0.556,1,gemcitabine,drug,30,22,0.385,0
+NCT01296763,1,2011,1,NA,0,0,1,0,DRUG,0,academic,13,13,0.2,1,irinotecan,drug,0,0,NA,1
+NCT01303029,1,2011,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine erlotinib,drug,0,0,NA,1
+NCT01303159,0,2011,NA,NA,0,0,1,0,DEVICE,0,academic,0,0,NA,0,endoscopic bipolar radiofrequency probe endohpb,device,0,0,NA,1
+NCT01313416,0,2011,2,NA,0,0,1,0,BIOLOGICAL,1,academic,0,0,NA,0,ct 011,biological,0,0,NA,1
+NCT01314027,0,2010,3,NA,0,0,4,1,DRUG,0,academic,1,1,NA,0,neoadjuvant chemotherapy with gemcitabine oxaliplatin,drug,0,0,NA,1
+NCT01326364,0,2010,NA,NA,0,0,1,0,PROCEDURE,1,academic,1,1,NA,0,stereotactic body radiotherapy,procedure,1,1,NA,0
+NCT01330823,0,2011,3,NA,0,0,1,0,DIETARY_SUPPLEMENT,0,academic,0,0,NA,0,l carnitine,dietary_supplement,0,0,NA,1
+NCT01335945,0,2011,1,NA,0,0,1,0,PROCEDURE,0,biotech,0,0,NA,0,cryoablation,procedure,0,0,NA,1
+NCT01335958,1,2011,1,NA,0,0,NA,0,DRUG,0,biotech,0,0,NA,0,dmuc5754a,drug,0,0,NA,1
+NCT01342224,1,2011,1,NA,0,0,1,0,BIOLOGICAL,0,unknown,0,0,NA,0,tadalafil and vaccination,biological,0,0,NA,1
+NCT01359007,0,2011,2,NA,0,0,1,0,DRUG,0,academic,2,1,0,0,irinotecan oxaliplatin leucovorin 5 fu,drug,0,0,NA,1
+NCT01362582,0,2010,3,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,smof kabiven,drug,0,0,NA,1
+NCT01373164,1,2011,1,NA,0,0,6,1,DRUG,0,big_pharma,6,3,0.5,1,galunisertib,drug,0,0,NA,1
+NCT01385956,1,2011,1,NA,0,0,1,0,DRUG,0,academic,1,1,NA,0,som 230 lar,drug,0,0,NA,1
+NCT01389440,1,2011,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine and erlotinib,drug,1,1,1,0
+NCT01395563,0,2009,NA,NA,0,0,1,0,BEHAVIORAL,0,academic,0,0,NA,0,strength training,behavioral,0,0,NA,1
+NCT01401387,0,2011,4,NA,0,0,1,0,OTHER,0,unknown,0,0,NA,0,timing of start treatment with pancreatic enzymes,other,0,0,NA,1
+NCT01410968,1,2011,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,vacc w poly iclc peptide pulsed dendritic cells,drug,0,0,NA,1
+NCT01413022,1,2011,1,NA,0,0,1,0,DRUG,1,academic,1,1,0,0,oxaliplatin,drug,4,1,0,0
+NCT01413087,0,2011,2,NA,0,0,2,1,BIOLOGICAL,0,biotech,1,1,NA,0,biological vaccine bc 819,biological,0,0,NA,1
+NCT01415713,1,2011,1,NA,0,0,1,0,DRUG,0,academic,3,2,1,0,s 1 leucovorin oxaliplatin gemcitabine,drug,0,0,NA,1
+NCT01416662,1,2011,2,NA,0,0,1,0,DRUG,0,unknown,2,2,NA,0,gemcitabine hydrochloride,drug,25,11,0.667,0
+NCT01419483,0,2011,NA,NA,0,0,1,0,DIETARY_SUPPLEMENT,0,academic,2,2,0,0,ketogenic diet,dietary_supplement,0,0,NA,1
+NCT01423604,1,2011,2,NA,0,0,NA,0,DRUG,0,biotech,0,0,NA,0,capecitabine,drug,18,14,0.6,0
+NCT01431794,0,2011,1,NA,0,0,1,0,DRUG,0,academic,13,13,0.2,1,lde225 600mg,drug,0,0,NA,1
+NCT01434550,0,2011,NA,NA,0,0,NA,0,RADIATION,0,academic,1,1,NA,0,stereotactic body radiation therapy sbrt,radiation,0,0,NA,1
+NCT01446458,1,2011,1,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,modified folfirinox,drug,0,0,NA,1
+NCT01459614,1,2011,2,NA,0,0,1,0,DRUG,0,academic,13,13,0.2,1,gemcitabine,drug,30,22,0.385,0
+NCT01461915,0,2011,2,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,nab paclitaxel,drug,0,0,NA,1
+NCT01472198,1,2011,2,NA,0,0,2,1,DRUG,0,unknown,2,1,NA,0,simtuzumab,drug,0,0,NA,1
+NCT01473303,0,2011,1,NA,0,0,NA,0,BIOLOGICAL,1,academic,7,3,1,1,ganitumab,biological,0,0,NA,1
+NCT01484860,0,2011,2,NA,0,0,1,0,DRUG,0,academic,3,1,1,0,auy922,drug,0,0,NA,1
+NCT01486329,1,2011,1,NA,0,0,1,0,BIOLOGICAL,0,unknown,0,0,NA,0,vxm01,biological,0,0,NA,1
+NCT01494506,1,2011,3,NA,0,0,NA,0,DRUG,0,biotech,0,0,NA,0,mm 398,drug,0,0,NA,1
+NCT01506973,1,2012,1,NA,0,0,1,0,DRUG,0,academic,2,1,NA,0,hydroxychloroquine hcq,drug,0,0,NA,1
+NCT01510561,0,2012,1,NA,0,0,1,0,DRUG,0,unknown,3,2,1,0,90y hpam4,drug,0,0,NA,1
+NCT01515046,0,2012,2,NA,0,0,1,0,DRUG,0,unknown,1,1,NA,0,gemcitabine with escalating ascorbic acid,drug,1,1,NA,0
+NCT01523808,1,2012,1,NA,0,0,NA,0,DRUG,0,biotech,0,0,NA,0,graspa,drug,0,0,NA,1
+NCT01524575,0,2012,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,gemcitabine and oxaliplatin,drug,0,0,NA,1
+NCT01526135,1,2012,3,NA,0,0,2,1,DRUG,0,unknown,2,0,1,0,mfolfirinox,drug,0,0,NA,1
+NCT01531712,0,2012,2,NA,0,0,1,0,DRUG,1,unknown,0,0,NA,0,gemcitabine,drug,35,23,0.467,0
+NCT01543412,1,2010,2,NA,0,0,1,0,DRUG,0,unknown,1,1,1,0,folfiri,drug,0,0,NA,1
+NCT01547260,1,2012,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemzar,drug,0,0,NA,1
+NCT01569282,0,2012,NA,NA,0,0,1,0,PROCEDURE,0,academic,0,0,NA,0,hepaticojejunostomy and gastroenterostomy,procedure,0,0,NA,1
+NCT01587534,1,2012,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,norzyme,drug,0,0,NA,1
+NCT01598584,0,2012,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,mirtazapine plus gemcitabine,drug,0,0,NA,1
+NCT01600807,0,2011,1,NA,0,0,1,0,DRUG,0,academic,5,2,0,0,gemcitabine erlotinib osi 906,drug,0,0,NA,1
+NCT01621243,0,2012,1,NA,0,0,2,1,DRUG,0,biotech,0,0,NA,0,nab paclitaxel,drug,1,1,0,0
+NCT01632306,0,2012,1,NA,0,0,1,0,DRUG,0,big_pharma,9,5,0.667,1,ly2090314,drug,0,0,NA,1
+NCT01647828,1,2012,1,NA,0,0,1,0,DRUG,0,biotech,1,1,NA,0,omp 59r5,drug,0,0,NA,1
+NCT01652976,1,2012,2,NA,0,0,1,0,DRUG,0,academic,2,2,NA,0,dasatinib,drug,4,4,0,0
+NCT01658943,1,2012,2,NA,0,0,1,0,DRUG,0,academic,31,12,0.636,1,akt inhibitor mk2206,drug,0,0,NA,1
+NCT01674556,1,2012,1,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,gemzar,drug,0,0,NA,1
+NCT01683422,0,2012,NA,NA,0,0,1,0,RADIATION,0,academic,0,0,NA,0,proton gemcitabine erlotinib capecitabine,radiation,0,0,NA,1
+NCT01688336,0,2012,2,NA,0,0,1,0,DRUG,0,academic,1,0,NA,0,folfirinox,drug,0,0,NA,1
+NCT01693276,0,2012,1,NA,0,0,1,0,DRUG,1,unknown,0,0,NA,0,gemcitabine,drug,35,23,0.467,0
+NCT01730222,1,2012,1,NA,0,0,1,0,DRUG,0,unknown,6,6,0.5,0,cisplatin,drug,6,0,1,0
+NCT01739439,0,2012,1,NA,0,0,1,0,DRUG,1,academic,3,2,0,0,gemcitabine hydrochloride,drug,26,12,0.714,0
+NCT01741597,0,2012,1,NA,0,0,1,0,PROCEDURE,1,academic,4,4,0,0,dynamic contrast enhanced magnetic resonance imaging,procedure,0,0,NA,1
+NCT01746979,1,2012,3,NA,0,0,2,1,DRUG,0,unknown,1,1,1,0,th 302,drug,0,0,NA,1
+NCT01754623,0,2012,2,NA,0,0,1,0,DRUG,1,academic,3,3,0.5,0,capecitabine,drug,20,14,0.667,0
+NCT01760252,0,2012,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,capecitabine oxaliplatin and irinotecan capoxiri,drug,0,0,NA,1
+NCT01760694,0,2012,NA,NA,0,0,1,0,OTHER,0,academic,0,0,NA,0,multi modality iort surgery radiation chemotherapy,other,0,0,NA,1
+NCT01768988,0,2013,4,NA,1,0,1,0,DRUG,0,unknown,0,0,NA,0,placebo,drug,1,1,NA,0
+NCT01770132,1,2013,1,NA,0,0,1,0,DRUG,1,unknown,0,0,NA,0,porfimer sodium,drug,0,0,NA,1
+NCT01782690,1,2013,NA,NA,0,0,1,0,DRUG,0,big_pharma,5,5,0.5,0,erlotinib,drug,7,6,0.75,0
+NCT01783171,1,2013,1,NA,0,0,2,1,DRUG,1,academic,34,12,0.667,1,akt inhibitor mk2206,drug,1,1,1,0
+NCT01789073,1,2013,NA,NA,0,0,1,0,DIETARY_SUPPLEMENT,0,academic,0,0,NA,0,oral impact nestl health science,dietary_supplement,0,0,NA,1
+NCT01795274,0,2013,NA,NA,0,0,1,0,RADIATION,0,academic,1,1,NA,0,carbon ion radiotherapy,radiation,0,0,NA,1
+NCT01808638,1,2013,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,atu027 gemcitabine in lead in safety period,drug,0,0,NA,1
+NCT01821612,1,2013,0.5,NA,0,0,1,0,DRUG,1,academic,9,4,0.667,1,oxaliplatin,drug,5,1,0.5,0
+NCT01830322,0,2013,2,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,cpi 613,drug,0,0,NA,1
+NCT01834235,0,2013,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,gemcitabine,drug,40,23,0.412,0
+NCT01835041,1,2013,1,NA,0,0,1,0,DRUG,1,academic,4,1,0,0,6 8 bis benzylthio octanoic acid,drug,0,0,NA,1
+NCT01836432,0,2013,3,NA,0,0,1,0,DRUG,1,biotech,4,2,0.667,0,folfirinox,drug,3,3,0,0
+NCT01839487,1,2013,2,NA,0,0,1,0,DRUG,0,biotech,1,1,NA,0,pegph20,drug,0,0,NA,1
+NCT01844817,1,2013,2,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,ogx 427,drug,0,0,NA,1
+NCT01845805,1,2013,2,NA,0,0,1,0,DRUG,1,academic,16,7,0.375,1,oral azacitidine,drug,0,0,NA,1
+NCT01851174,0,2013,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,gemcitabine,drug,40,23,0.412,0
+NCT01872377,0,2012,NA,NA,0,0,1,0,RADIATION,0,academic,0,0,NA,0,cyberknife stereotactic body radiotherapy sbrt boost,radiation,0,0,NA,1
+NCT01875198,0,2013,NA,NA,0,0,1,0,PROCEDURE,0,academic,0,0,NA,0,radical antegrade modular pancreatectomy with splenectomy,procedure,0,0,NA,1
+NCT01895790,0,2013,1,NA,0,0,1,0,DEVICE,0,academic,0,0,NA,0,pancreatic duct stent placement,device,0,0,NA,1
+NCT01897454,0,2013,2,NA,0,0,1,0,DRUG,1,unknown,0,0,NA,0,fluorouracil,drug,10,0,1,0
+NCT01900327,0,2013,3,NA,0,0,1,0,RADIATION,1,unknown,0,0,NA,0,external beam radiation,radiation,0,0,NA,1
+NCT01903083,1,2013,1,NA,0,0,1,0,DRUG,1,unknown,1,1,1,0,tadalafil,drug,0,0,NA,1
+NCT01911416,0,2013,NA,NA,0,0,1,0,DRUG,0,academic,1,1,NA,0,lde225,drug,0,0,NA,1
+NCT01921751,0,2013,2,NA,0,0,1,0,RADIATION,1,unknown,2,1,0,0,low intensity radiation therapy,radiation,0,0,NA,1
+NCT01940237,0,2013,NA,NA,0,0,1,0,BEHAVIORAL,0,academic,0,0,NA,0,psychotherapy,behavioral,0,0,NA,1
+NCT01945879,1,2013,1,NA,0,0,1,0,DRUG,0,unknown,3,3,1,0,enoxaparine,drug,0,0,NA,1
+NCT01946646,0,2013,1,NA,0,0,1,0,DRUG,0,academic,2,1,NA,0,s 1 ccrt,drug,0,0,NA,1
+NCT01954732,0,2013,1,NA,0,0,NA,0,DRUG,1,academic,5,4,0.5,0,metformin hydrochloride,drug,1,1,NA,0
+NCT01956812,0,2013,3,NA,0,0,8,1,DRUG,0,unknown,4,3,0.5,0,immu 107,drug,0,0,NA,1
+NCT01959139,1,2013,1,NA,0,0,1,0,DRUG,0,unknown,3,0,NA,0,pegph20,drug,0,0,NA,1
+NCT01962909,0,2013,0.5,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,ptp 01,drug,0,0,NA,1
+NCT01964430,1,2013,3,NA,0,0,21,1,DRUG,0,unknown,2,1,1,0,nab paclitaxel,drug,2,2,0,0
+NCT01977066,1,2013,NA,NA,0,0,1,0,BEHAVIORAL,0,academic,2,2,0.5,0,six months supervised resistance training,behavioral,0,0,NA,1
+NCT01996540,1,2013,NA,NA,1,1,1,0,OTHER,0,unknown,0,0,NA,0,interventional arm early best palliative care,other,0,0,NA,1
+NCT02004262,1,2013,2,NA,0,0,2,1,BIOLOGICAL,1,biotech,1,1,NA,0,gvax pancreas vaccine,biological,1,0,NA,0
+NCT02024009,1,2013,1,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,nab paclitaxel,drug,2,2,0,0
+NCT02028806,1,2014,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,mfolfirinox,drug,1,1,1,0
+NCT02043730,1,2014,2,NA,0,0,1,0,DRUG,0,unknown,2,1,1,0,nab paclitaxel and gemcitabine,drug,0,0,NA,1
+NCT02045589,1,2014,1,NA,0,0,1,0,GENETIC,1,unknown,0,0,NA,0,vcn 01,genetic,0,0,NA,1
+NCT02047500,0,2014,1,NA,0,0,1,0,DRUG,0,unknown,2,2,1,0,th 302,drug,1,1,1,0
+NCT02047513,1,2014,2,NA,0,0,1,0,DRUG,0,unknown,1,1,NA,0,perioperative nab paclitaxel gemcitabine,drug,0,0,NA,1
+NCT02048384,1,2014,1,NA,0,0,1,0,DRUG,0,academic,18,7,0.444,1,metformin alone arm a,drug,0,0,NA,1
+NCT02070705,0,2014,NA,NA,0,0,1,0,PROCEDURE,1,academic,1,0,NA,0,dynamic contrast enhanced magnetic resonance imaging,procedure,1,1,0,0
+NCT02077881,1,2014,1,NA,0,0,1,0,DRUG,0,biotech,5,2,0.5,0,nab paclitaxel,drug,6,6,0.5,0
+NCT02089269,1,2014,NA,NA,0,0,1,0,NA,0,unknown,0,0,NA,0,registry real world,NA,0,0,NA,1
+NCT02101021,0,2014,3,NA,0,0,1,0,DRUG,0,big_pharma,0,0,NA,0,momelotinib,drug,0,0,NA,1
+NCT02106871,0,2014,1,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,sildenafil,drug,0,0,NA,1
+NCT02109445,0,2014,2,NA,0,0,1,0,DRUG,0,big_pharma,4,0,1,0,pf 03084014,drug,0,0,NA,1
+NCT02117479,0,2014,3,NA,0,0,NA,0,DRUG,0,biotech,1,1,1,0,ruxolitinib,drug,0,0,NA,1
+NCT02119663,0,2014,3,NA,0,0,NA,0,DRUG,0,biotech,1,1,1,0,ruxolitinib,drug,0,0,NA,1
+NCT02125136,1,2014,2,NA,0,0,1,0,DRUG,0,unknown,1,1,NA,0,gem nab pac,drug,0,0,NA,1
+NCT02132403,0,2014,1,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,bth1704,drug,0,0,NA,1
+NCT02159248,0,2014,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,tolfenamic acid gemcitabine radiation,drug,0,0,NA,1
+NCT02178436,1,2014,1,NA,0,0,1,0,DRUG,1,unknown,0,0,NA,0,gemcitabine hydrochloride,drug,28,8,0.625,0
+NCT02184195,1,2014,3,NA,0,0,12,1,DRUG,0,big_pharma,4,0,1,0,olaparib,drug,0,0,NA,1
+NCT02202785,0,2014,2,NA,0,0,NA,0,DRUG,0,biotech,0,0,NA,0,mln0264,drug,0,0,NA,1
+NCT02207985,0,2014,1,NA,0,0,1,0,PROCEDURE,0,academic,0,0,NA,0,allogeneic hematopoietic stem cell transplantation,procedure,0,0,NA,1
+NCT02215044,0,2014,1,NA,0,0,NA,0,DRUG,0,unknown,1,0,NA,0,bi 2536 intravenous,drug,0,0,NA,1
+NCT02237157,1,2014,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine local delivery,drug,0,0,NA,1
+NCT02241551,0,2014,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine nab paclitaxel,drug,0,0,NA,1
+NCT02243007,0,2014,2,NA,0,0,1,0,DRUG,1,academic,9,5,0.333,1,folfirinox,drug,5,5,0,0
+NCT02244489,0,2014,1,NA,0,0,1,0,DRUG,0,big_pharma,0,0,NA,0,momelotinib mmb,drug,0,0,NA,1
+NCT02261714,1,2014,1,NA,0,0,3,1,BIOLOGICAL,0,unknown,0,0,NA,0,tg01,biological,0,0,NA,1
+NCT02267707,0,2014,1,NA,0,0,2,1,DRUG,0,unknown,5,3,1,0,nab paclitaxel,drug,6,6,0.5,0
+NCT02269683,0,2014,NA,NA,0,0,1,0,PROCEDURE,0,unknown,1,1,NA,0,robot assisted distal pancreatectomy,procedure,0,0,NA,1
+NCT02292745,1,2014,NA,NA,0,0,1,0,RADIATION,0,unknown,1,1,0,0,stereotactic radiotherapy,radiation,0,0,NA,1
+NCT02295956,1,2014,0.5,NA,0,0,1,0,BEHAVIORAL,1,academic,15,5,0.5,1,questionnaires,behavioral,1,0,NA,0
+NCT02301143,1,2014,2,NA,0,0,5,1,DRUG,1,unknown,5,3,1,0,nab paclitaxel,drug,6,6,0.5,0
+NCT02308722,1,2014,1,NA,0,0,1,0,RADIATION,0,academic,1,1,1,0,5 fraction stereotactic body radiation therapy,radiation,0,0,NA,1
+NCT02309177,1,2014,1,NA,0,0,1,0,DRUG,0,unknown,5,3,1,0,nab paclitaxel,drug,6,6,0.5,0
+NCT02309632,0,2014,NA,NA,0,0,1,0,OTHER,0,academic,0,0,NA,0,pancreatic cancer screening pathway 1,other,0,0,NA,1
+NCT02324543,1,2014,1,NA,0,0,1,0,DRUG,0,academic,18,7,0.444,1,gemcitabine,drug,46,22,0.368,0
+NCT02332863,1,2014,NA,NA,0,0,1,0,DEVICE,0,academic,0,0,NA,0,back loaded needle device,device,0,0,NA,1
+NCT02333409,0,2014,NA,NA,0,0,1,0,PROCEDURE,0,academic,0,0,NA,0,electroacupuncture,procedure,0,0,NA,1
+NCT02345460,0,2015,2,NA,0,0,1,0,DRUG,1,academic,7,3,0.333,0,irinotecan hydrochloride,drug,0,0,NA,1
+NCT02349867,1,2015,1,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,gemcitabine,drug,49,22,0.4,0
+NCT02352337,1,2015,2,NA,0,0,1,0,DRUG,0,unknown,3,1,1,0,folfirinox,drug,7,7,0,0
+NCT02352831,0,2015,1,NA,0,0,1,0,DRUG,1,academic,4,4,0.5,0,tosedostat,drug,0,0,NA,1
+NCT02362048,1,2015,2,NA,0,0,NA,0,DRUG,1,biotech,0,0,NA,0,acp 196,drug,0,0,NA,1
+NCT02383433,0,2015,2,NA,0,0,1,0,DRUG,0,academic,7,3,0.333,0,regorafenib,drug,1,1,NA,0
+NCT02394535,1,2015,1,NA,0,0,1,0,DRUG,1,academic,16,2,0.571,1,capecitabine,drug,22,7,0.571,0
+NCT02395016,1,2015,3,NA,0,0,1,0,DRUG,1,biotech,0,0,NA,0,nimotuzumab,drug,1,0,1,0
+NCT02399137,1,2015,2,NA,0,0,6,1,DRUG,0,biotech,1,1,1,0,mm 141,drug,0,0,NA,1
+NCT02404363,0,2015,3,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,clopidogrel,drug,0,0,NA,1
+NCT02405585,0,2015,2,NA,0,0,1,0,DRUG,1,biotech,6,3,0.6,0,mfolfirinox,drug,2,2,1,0
+NCT02414100,0,2015,NA,NA,0,0,1,0,OTHER,0,academic,1,0,1,0,laboratory biomarker analysis,other,2,1,NA,0
+NCT02449967,0,2015,1,NA,0,0,1,0,PROCEDURE,0,academic,1,1,NA,0,interventional therapy,procedure,0,0,NA,1
+NCT02454140,1,2015,NA,NA,0,0,1,0,RADIATION,0,academic,0,0,NA,0,sbrt,radiation,0,0,NA,1
+NCT02456051,0,2015,NA,NA,0,0,1,0,NA,0,academic,1,1,NA,0,biomarker,NA,16,12,NA,0
+NCT02465983,0,2015,1,NA,0,0,1,0,BIOLOGICAL,1,academic,2,1,0,0,cart meso 19 t cells,biological,0,0,NA,1
+NCT02468557,0,2015,1,NA,0,0,1,0,DRUG,0,unknown,5,3,0.333,0,idelalisib,drug,0,0,NA,1
+NCT02475499,1,2015,NA,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,dpp 4 inhibitors,drug,0,0,NA,1
+NCT02487277,0,2015,2,NA,0,0,1,0,DRUG,0,unknown,2,1,0,0,pegph20,drug,3,3,1,0
+NCT02496832,0,2014,NA,NA,0,0,NA,0,DRUG,0,academic,6,3,0.5,0,18f fluoroazomycin arabinoside,drug,0,0,NA,1
+NCT02501902,1,2015,1,NA,0,0,2,1,DRUG,0,big_pharma,5,1,0.667,0,palbociclib,drug,0,0,NA,1
+NCT02504333,1,2015,1,NA,0,0,1,0,DRUG,0,unknown,1,1,1,0,nab paclitaxel,drug,12,12,0.625,0
+NCT02514031,0,2015,1,NA,0,0,1,0,DRUG,0,academic,2,0,0,0,arq 761,drug,0,0,NA,1
+NCT02515513,0,2015,NA,NA,0,0,1,0,PROCEDURE,0,academic,3,3,1,0,muscle tissue biopsy sample,procedure,0,0,NA,1
+NCT02517268,1,2015,NA,NA,0,0,1,0,PROCEDURE,0,academic,1,0,1,0,pancreaticoduodenectomy,procedure,0,0,NA,1
+NCT02548169,0,2015,1,NA,0,0,1,0,BIOLOGICAL,0,academic,0,0,NA,0,dc vaccine standard of care chemotherapy,biological,0,0,NA,1
+NCT02551991,1,2015,2,NA,0,0,3,1,DRUG,0,unknown,0,0,NA,0,nal iri,drug,0,0,NA,1
+NCT02555813,1,2015,NA,NA,0,0,1,0,DRUG,0,unknown,9,7,0.8,1,abraxane,drug,1,0,NA,0
+NCT02562716,1,2015,2,NA,0,0,1,0,DRUG,1,unknown,4,1,1,0,fluorouracil,drug,11,1,0.667,0
+NCT02562898,1,2015,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,ibrutinib,drug,0,0,NA,1
+NCT02564146,1,2015,2,NA,0,0,1,0,DRUG,0,unknown,4,4,1,0,nab paclitaxel and gemcitabine,drug,1,1,1,0
+NCT02570529,0,2015,4,NA,0,0,NA,0,DRUG,0,academic,1,1,0,0,albis,drug,0,0,NA,1
+NCT02570711,0,2015,2,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,acp 196,drug,0,0,NA,1
+NCT02575508,0,2015,1,NA,0,0,1,0,DRUG,1,academic,3,0,0,0,fluorouracil,drug,11,1,0.667,0
+NCT02578459,0,2015,NA,NA,0,0,1,0,DEVICE,1,unknown,0,0,NA,0,intrathecal drug delivery system,device,0,0,NA,1
+NCT02580422,0,2015,NA,NA,0,0,1,0,NA,0,academic,2,1,NA,0,imaging diagnostics,NA,16,10,NA,0
+NCT02581215,1,2015,2,NA,1,0,1,0,DRUG,1,unknown,0,0,NA,0,mfolfirinox,drug,2,2,1,0
+NCT02581501,0,2015,1,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,gax gemcitabine abraxane and xeloda,drug,0,0,NA,1
+NCT02591082,1,2015,NA,NA,0,0,1,0,DEVICE,0,unknown,1,1,1,0,renovocath r120 catheter,device,0,0,NA,1
+NCT02592395,0,2015,1,NA,0,0,NA,0,DRUG,1,academic,1,0,NA,0,folfirinox,drug,7,7,0,0
+NCT02608229,0,2015,1,NA,0,0,1,0,DRUG,1,academic,4,4,0.5,0,bvd 523,drug,0,0,NA,1
+NCT02620865,1,2015,1,NA,0,0,1,0,BIOLOGICAL,1,academic,4,0,NA,0,aldesleukin,biological,0,0,NA,1
+NCT02653313,1,2015,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,parvovirus h 1 h 1pv,drug,0,0,NA,1
+NCT02670746,0,2015,NA,NA,0,0,1,0,NA,0,unknown,9,7,0.8,1,imaging diagnostics,NA,16,10,NA,0
+NCT02672917,0,2016,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,mvt 5873,drug,0,0,NA,1
+NCT02681601,0,2016,NA,NA,0,0,1,0,DIETARY_SUPPLEMENT,1,academic,2,1,0,0,nutrawell powder,dietary_supplement,0,0,NA,1
+NCT02682082,0,2016,NA,NA,0,0,1,0,PROCEDURE,1,academic,1,1,NA,0,endoscopic ultrasound guided celiax plexus neurolysis,procedure,0,0,NA,1
+NCT02683824,1,2016,0.5,NA,0,0,1,0,DIAGNOSTIC_TEST,1,academic,4,1,0,0,computed tomography,diagnostic_test,0,0,NA,1
+NCT02697058,1,2016,2,NA,0,0,1,0,BIOLOGICAL,1,unknown,0,0,NA,0,bax2398 5 fu calcium levofolinate,biological,0,0,NA,1
+NCT02702986,1,2016,1,NA,0,0,1,0,PROCEDURE,1,unknown,0,0,NA,0,immunostimulating interstitial laser thermotherapy,procedure,0,0,NA,1
+NCT02704143,1,2016,NA,NA,0,0,1,0,OTHER,1,academic,1,1,NA,0,combination of cyberknife with s 1,other,0,0,NA,1
+NCT02704156,1,2016,2,NA,0,0,1,0,DEVICE,0,academic,1,1,NA,0,cyberknife plus pembrolizumab and trametinib,device,0,0,NA,1
+NCT02715804,0,2016,3,NA,0,0,22,1,OTHER,1,biotech,2,2,1,0,biological pegylated recombinant human hyaluronidase pegph20,other,0,0,NA,1
+NCT02716207,1,2016,NA,NA,0,0,1,0,DEVICE,0,academic,1,1,NA,0,cyberknife,device,0,0,NA,1
+NCT02720666,1,2016,1,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,k 001,drug,0,0,NA,1
+NCT02723331,1,2016,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,nab paclitaxel,drug,16,16,0.667,0
+NCT02734160,1,2016,1,NA,0,0,5,1,DRUG,0,big_pharma,13,7,0.5,1,galunisertib,drug,1,1,1,0
+NCT02736578,0,2016,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,cetuximab irdye800,drug,0,0,NA,1
+NCT02743975,0,2016,1,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,bevacizumab 800cw,drug,0,0,NA,1
+NCT02745197,0,2016,2,NA,0,0,NA,0,DIETARY_SUPPLEMENT,0,academic,0,0,NA,0,nutritional supplement,dietary_supplement,0,0,NA,1
+NCT02749136,1,2016,2,NA,0,0,1,0,DRUG,0,academic,3,0,NA,0,preoperative modified folfirinox and postoperative gemcitabine,drug,0,0,NA,1
+NCT02750657,1,2016,NA,NA,0,0,1,0,GENETIC,0,academic,9,6,0.333,0,molecular profiling,genetic,0,0,NA,1
+NCT02767557,1,2016,2,NA,0,0,2,1,DRUG,0,academic,0,0,NA,0,tocilizumab,drug,0,0,NA,1
+NCT02782182,0,2016,1,NA,0,0,1,0,DRUG,0,academic,4,1,1,0,folfirinox oxaliplatin leucovorin irinotecan,drug,0,0,NA,1
+NCT02812992,1,2016,4,NA,0,0,1,0,DRUG,1,unknown,7,6,1,0,nab paclitaxel,drug,16,16,0.667,0
+NCT02826486,1,2016,2,NA,0,0,4,1,DRUG,0,biotech,0,0,NA,0,bl 8040,drug,0,0,NA,1
+NCT02850874,0,2016,2,NA,0,0,1,0,PROCEDURE,1,academic,7,4,0.5,0,hyperthermic intraperitoneal chemotherapy,procedure,0,0,NA,1
+NCT02851381,0,2016,NA,NA,0,0,NA,0,DRUG,0,academic,2,1,0,0,fg 3019,drug,2,1,NA,0
+NCT02866383,1,2016,2,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,nivolumab,drug,0,0,NA,1
+NCT02868632,0,2016,1,NA,0,0,1,0,DRUG,1,unknown,3,0,0,0,medi4736,drug,0,0,NA,1
+NCT02879318,1,2016,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine,drug,53,23,0.429,0
+NCT02894944,1,2016,1,NA,0,0,1,0,BIOLOGICAL,0,academic,6,5,1,0,theragene ad5 ycd muttksr39rep adp,biological,0,0,NA,1
+NCT02902484,0,2016,1,NA,0,0,1,0,DRUG,0,academic,3,1,0,0,nintedanib,drug,0,0,NA,1
+NCT02905578,1,2016,2,NA,0,0,1,0,DRUG,0,unknown,3,2,0,0,gemcitabine,drug,53,23,0.429,0
+NCT02910882,0,2016,2,NA,0,0,1,0,DRUG,1,unknown,0,0,NA,0,pegylated recombinant human hyaluronidase pegph20,drug,0,0,NA,1
+NCT02921737,0,2016,2,NA,0,0,1,0,DRUG,0,academic,4,4,0.5,0,tas 102,drug,0,0,NA,1
+NCT02923921,1,2016,3,NA,0,0,13,1,BIOLOGICAL,1,big_pharma,13,7,0.5,1,pegilodecakin,biological,0,0,NA,1
+NCT02926040,0,2016,NA,NA,0,0,1,0,PROCEDURE,0,academic,0,0,NA,0,irreversible electroporation,procedure,0,0,NA,1
+NCT02948309,1,2016,3,NA,0,0,1,0,DRUG,0,academic,1,1,NA,0,mistletoe extract iscador qu,drug,0,0,NA,1
+NCT02952859,0,2016,NA,NA,0,0,1,0,OTHER,0,academic,0,0,NA,0,irreversible electroporation,other,0,0,NA,1
+NCT02959879,1,2016,2,NA,0,0,1,0,DRUG,1,academic,1,1,NA,0,folfox neoadjuvant chemotherapy,drug,0,0,NA,1
+NCT02967770,0,2016,2,NA,0,0,1,0,OTHER,1,academic,2,1,NA,0,molecularly tailored second line therapy,other,0,0,NA,1
+NCT02973217,1,2016,NA,NA,0,0,1,0,DEVICE,0,academic,0,0,NA,0,immunostimulating interstitial laser thermotherapy,device,0,0,NA,1
+NCT02974764,1,2016,NA,NA,0,0,1,0,OTHER,0,academic,1,1,0,0,no intervention exposures,other,0,0,NA,1
+NCT02981342,1,2016,2,NA,0,0,8,1,DRUG,0,big_pharma,13,7,0.5,1,abemaciclib,drug,0,0,NA,1
+NCT02985801,0,2016,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,pancrelipase,drug,0,0,NA,1
+NCT03001505,0,2016,NA,NA,0,0,1,0,NA,0,academic,3,1,0,0,registry real world,NA,1,1,1,0
+NCT03002831,0,2016,2,NA,0,0,1,0,BIOLOGICAL,1,academic,0,0,NA,0,cytokine induced killer cells,biological,0,0,NA,1
+NCT03003078,1,2016,NA,NA,0,0,3,1,DEVICE,0,unknown,0,0,NA,0,oncosil,device,0,0,NA,1
+NCT03012282,0,2017,NA,NA,0,0,1,0,DIAGNOSTIC_TEST,0,academic,1,0,NA,0,computed tomography perfusion imaging,diagnostic_test,0,0,NA,1
+NCT03033225,1,2017,2,NA,0,0,1,0,PROCEDURE,1,academic,8,1,0,0,endoscopic ultrasound,procedure,1,1,NA,0
+NCT03040986,1,2017,2,NA,0,0,1,0,OTHER,1,academic,38,7,0.692,1,laboratory biomarker analysis,other,3,1,0,0
+NCT03069599,0,2016,NA,NA,0,0,1,0,PROCEDURE,0,academic,0,0,NA,0,irreversible electroporation ire,procedure,0,0,NA,1
+NCT03077685,1,2017,2,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,nanopac,drug,0,0,NA,1
+NCT03086642,1,2017,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,talimogene laherparepvec,drug,1,0,NA,0
+NCT03099265,0,2017,2,NA,0,0,1,0,DRUG,0,academic,2,2,NA,0,neoadjuvant mfolfirinox,drug,0,0,NA,1
+NCT03105921,1,2017,NA,NA,0,0,1,0,DEVICE,0,academic,0,0,NA,0,nanoknife,device,0,0,NA,1
+NCT03117556,0,2017,NA,NA,0,0,1,0,PROCEDURE,0,academic,1,1,NA,0,bilateral thoracoscopic splanchnicectomy,procedure,0,0,NA,1
+NCT03122106,0,2017,1,NA,0,0,1,0,BIOLOGICAL,1,academic,6,4,0.25,0,personalized neoantigen dna vaccine,biological,0,0,NA,1
+NCT03127124,0,2017,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,nant 008,drug,0,0,NA,1
+NCT03136406,0,2017,1,NA,0,0,1,0,DRUG,1,biotech,1,1,NA,0,cyclophosphamide,drug,1,1,NA,0
+NCT03140670,0,2017,2,NA,0,0,1,0,DRUG,0,academic,8,6,1,0,rucaparib,drug,1,1,NA,0
+NCT03180437,1,2017,1,NA,0,0,1,0,PROCEDURE,1,academic,7,7,0,0,ire surgery,procedure,0,0,NA,1
+NCT03187587,0,2017,NA,NA,0,0,1,0,DEVICE,1,academic,1,1,1,0,imilt,device,0,0,NA,1
+NCT03192462,1,2017,1,NA,0,0,1,0,BIOLOGICAL,0,unknown,0,0,NA,0,multitaa specific t cells,biological,0,0,NA,1
+NCT03193190,1,2017,1,NA,0,0,5,1,DRUG,0,big_pharma,8,3,0.667,0,nab paclitaxel,drug,18,17,0.727,0
+NCT03199144,0,2017,2,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,chemotherapy,drug,11,2,NA,0
+NCT03207724,1,2017,1,NA,0,0,1,0,DRUG,0,unknown,1,1,NA,0,xilonix plus onivyde and 5fu,drug,0,0,NA,1
+NCT03213626,0,2017,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,cabozantinib 40 mg,drug,0,0,NA,1
+NCT03214250,1,2017,1,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,apx005m,drug,0,0,NA,1
+NCT03225781,0,2017,NA,NA,0,0,1,0,DEVICE,0,unknown,1,1,1,0,electrochemotherapy with bleomycin,device,0,0,NA,1
+NCT03245658,0,2017,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,thc and cbd mixture,drug,0,0,NA,1
+NCT03250273,1,2017,2,NA,0,0,1,0,DRUG,0,academic,21,5,0.545,1,entinostat,drug,0,0,NA,1
+NCT03273374,1,2017,NA,NA,0,0,1,0,DEVICE,0,academic,0,0,NA,0,intraoperative radiation therapy iort,device,0,0,NA,1
+NCT03300921,0,2017,1,NA,0,0,1,0,DRUG,0,academic,8,6,1,0,paricalcitol,drug,1,1,NA,0
+NCT03307148,1,2017,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,atra,drug,0,0,NA,1
+NCT03323944,0,2017,1,NA,0,0,1,0,BIOLOGICAL,0,academic,3,2,0,0,hucart meso cells,biological,0,0,NA,1
+NCT03329248,0,2017,1,NA,0,0,1,0,BIOLOGICAL,1,biotech,1,1,NA,0,alt 803,biological,0,0,NA,1
+NCT03331055,1,2017,NA,NA,0,0,1,0,DEVICE,0,academic,7,7,0,0,pens,device,0,0,NA,1
+NCT03331562,1,2017,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,pembrolizumab,drug,1,1,NA,0
+NCT03331640,0,2017,2,NA,0,0,1,0,DRUG,0,unknown,8,7,1,0,off,drug,0,0,NA,1
+NCT03337997,0,2017,NA,NA,0,0,1,0,PROCEDURE,0,academic,0,0,NA,0,irreversible electroporation,procedure,3,3,0,0
+NCT03340974,1,2017,1,NA,0,0,1,0,DRUG,1,biotech,0,0,NA,0,gc4419,drug,0,0,NA,1
+NCT03344172,0,2017,2,NA,0,0,1,0,DRUG,0,unknown,1,1,0,0,gemcitabine nab paclitaxel hydroxychloroquine and avelumab,drug,0,0,NA,1
+NCT03374852,0,2017,2,NA,0,0,NA,0,DRUG,0,academic,5,4,0.667,0,cpi 613,drug,1,1,0,0
+NCT03376659,0,2017,1,NA,0,0,1,0,DRUG,1,academic,4,2,0,0,durvalumab,drug,1,1,NA,0
+NCT03377491,1,2017,3,NA,0,0,20,1,DEVICE,1,biotech,1,1,NA,0,novottf 200t,device,0,0,NA,1
+NCT03387098,0,2017,1,NA,0,0,1,0,DRUG,1,biotech,1,1,NA,0,aldoxorubicin hcl,drug,0,0,NA,1
+NCT03392571,0,2017,2,NA,0,0,NA,0,DRUG,0,unknown,4,0,NA,0,ngc triple regimen,drug,0,0,NA,1
+NCT03404960,1,2017,1,NA,0,0,1,0,DRUG,0,academic,3,2,0,0,niraparib nivolumab,drug,0,0,NA,1
+NCT03417921,0,2018,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,abtl0812,drug,0,0,NA,1
+NCT03432676,0,2018,2,NA,0,0,NA,0,DRUG,1,academic,23,8,0.625,1,epacadostat,drug,0,0,NA,1
+NCT03443492,1,2018,2,NA,0,0,1,0,DRUG,0,academic,6,1,1,0,s 1,drug,5,1,0,0
+NCT03444948,0,2017,NA,NA,0,0,1,0,DEVICE,1,academic,2,1,0,0,eus rfa using habib tm as a probe,device,0,0,NA,1
+NCT03468335,1,2018,3,NA,0,0,1,0,DRUG,0,unknown,9,8,0.8,0,irinotecan liposomal injection onivyde,drug,0,0,NA,1
+NCT03469258,0,2018,2,NA,0,0,1,0,DRUG,0,academic,9,2,0,0,pancrelipase,drug,1,1,0,0
+NCT03470948,0,2018,NA,NA,0,0,1,0,OTHER,0,academic,1,0,NA,0,observe postoperative complications,other,0,0,NA,1
+NCT03471468,0,2018,NA,NA,0,0,1,0,PROCEDURE,0,academic,1,1,1,0,kinetics of microparticles under chemotherapy,procedure,0,0,NA,1
+NCT03481920,0,2018,0.5,NA,0,0,1,0,DRUG,0,unknown,1,1,NA,0,pegylated recombinant human hyaluronidase pegph20,drug,1,1,0,0
+NCT03492164,0,2018,0.5,NA,0,0,1,0,DRUG,0,academic,10,7,0.333,0,18f fluorthanatrace 18f ftt,drug,0,0,NA,1
+NCT03509298,0,2018,2,NA,0,0,1,0,BIOLOGICAL,1,academic,10,10,0.667,0,activated cik and cd3 muc1 bispecific antibody in treating pancreatic cancer,biological,0,0,NA,1
+NCT03512756,0,2018,2,NA,1,1,1,0,DRUG,0,biotech,0,0,NA,0,sm 88 used with mps methoxsalen phenytoin sirolimus,drug,0,0,NA,1
+NCT03513705,1,2018,NA,NA,0,0,1,0,OTHER,0,unknown,5,3,1,0,best practices in pancreatic cancer care,other,0,0,NA,1
+NCT03517176,1,2018,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,cend 1,drug,0,0,NA,1
+NCT03519308,0,2018,0.5,NA,0,0,1,0,DRUG,0,academic,10,7,0.333,0,nivolumab,drug,4,4,1,0
+NCT03520790,0,2018,1,NA,0,0,1,0,DRUG,1,academic,9,2,0,0,gemcitabine,drug,59,19,0.478,0
+NCT03531125,0,2018,NA,NA,0,0,1,0,PROCEDURE,0,academic,2,2,1,0,endoscopic ultrasound,procedure,2,2,1,0
+NCT03536182,0,2018,3,NA,0,0,2,1,RADIATION,0,academic,5,3,0,0,carbon ion radiation therapy cirt,radiation,0,0,NA,1
+NCT03536208,0,2018,0.5,NA,0,0,1,0,DRUG,0,academic,5,3,0,0,warfarin,drug,0,0,NA,1
+NCT03541486,0,2018,2,NA,0,0,1,0,DRUG,1,unknown,0,0,NA,0,ascorbate,drug,1,1,NA,0
+NCT03563144,0,2018,2,NA,0,0,1,0,DRUG,1,biotech,4,3,0,0,gemcitabine,drug,59,19,0.478,0
+NCT03578939,1,2018,NA,NA,0,0,1,0,PROCEDURE,0,academic,1,1,NA,0,biopsy eus guided,procedure,0,0,NA,1
+NCT03585062,0,2018,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,s1,drug,1,1,NA,0
+NCT03586869,0,2018,1,NA,0,0,1,0,DRUG,1,biotech,4,3,0,0,aldoxorubicin hcl,drug,1,1,0,0
+NCT03590275,1,2018,NA,NA,0,0,1,0,DRUG,0,unknown,3,3,NA,0,folfirinox,drug,10,7,0.2,0
+NCT03592888,1,2018,1,NA,0,0,1,0,DRUG,0,academic,5,4,0.25,0,mdc3 8 kras vaccine,drug,0,0,NA,1
+NCT03599362,0,2018,2,NA,0,0,1,0,DRUG,1,unknown,5,2,0,0,nivolumab cabiralizumab,drug,0,0,NA,1
+NCT03600623,0,2018,0.5,NA,0,0,1,0,DRUG,0,academic,4,2,0,0,folfirinox,drug,10,7,0.2,0
+NCT03610490,0,2018,2,NA,0,0,1,0,BIOLOGICAL,1,academic,23,8,0.625,1,autologous tumor infiltrating lymphocytes mda til,biological,0,0,NA,1
+NCT03645148,1,2018,1,NA,0,0,1,0,BIOLOGICAL,1,academic,0,0,NA,0,ineo vac p01,biological,0,0,NA,1
+NCT03648632,1,2018,NA,NA,0,0,1,0,RADIATION,0,unknown,2,0,0,0,stereotactic radiotherapy,radiation,1,1,1,0
+NCT03649035,0,2018,3,NA,0,0,1,0,DEVICE,0,academic,1,1,NA,0,htp treatment,device,0,0,NA,1
+NCT03649321,0,2018,1,NA,0,0,1,0,DRUG,0,academic,5,3,0,0,bemcentinib,drug,0,0,NA,1
+NCT03693378,1,2018,NA,NA,0,0,5,1,NA,0,biotech,0,0,NA,0,biomarker,NA,24,12,0,0
+NCT03697239,0,2018,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,ascorbic acid,drug,0,0,NA,1
+NCT03711890,0,2018,NA,NA,0,0,1,0,PROCEDURE,1,academic,2,0,1,0,optical coherence tomography,procedure,0,0,NA,1
+NCT03716596,0,2018,1,NA,0,0,1,0,RADIATION,1,academic,1,1,NA,0,sbrt,radiation,1,1,1,0
+NCT03718650,0,2018,0.5,NA,0,0,1,0,DRUG,1,academic,7,2,0.333,0,pimonidazole,drug,0,0,NA,1
+NCT03723915,0,2018,2,NA,0,0,1,0,BIOLOGICAL,0,academic,3,0,0.5,0,pembrolizumab,biological,3,3,1,0
+NCT03724435,0,2018,NA,NA,0,0,4,1,NA,0,unknown,0,0,NA,0,imaging diagnostics,NA,28,16,0,0
+NCT03726021,1,2018,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,irinotecan oxaliplatin and s1,drug,0,0,NA,1
+NCT03727880,1,2018,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,pembrolizumab,drug,3,3,1,0
+NCT03760614,0,2018,1,NA,0,0,NA,0,DRUG,0,academic,10,7,0.333,0,entinostat,drug,1,1,1,0
+NCT03778879,0,2018,1,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,ccx872 b,drug,1,1,NA,0
+NCT03784417,0,2018,NA,NA,0,0,1,0,DEVICE,0,academic,0,0,NA,0,eus guided laser ablation,device,0,0,NA,1
+NCT03788382,1,2018,NA,NA,0,0,1,0,NA,0,unknown,2,2,0.5,0,resectable disease,NA,28,13,1,0
+NCT03798769,1,2018,NA,NA,0,0,1,0,OTHER,0,academic,11,3,0.25,1,supportive oncology care at home,other,0,0,NA,1
+NCT03801915,1,2019,2,NA,0,0,1,0,DRUG,1,academic,40,5,0.714,1,mvt 5873,drug,1,1,0,0
+NCT03820544,0,2019,NA,NA,0,0,1,0,PROCEDURE,1,academic,6,5,0.5,0,endoscopic retrograde cholangiopancreatography,procedure,0,0,NA,1
+NCT03822936,0,2019,2,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,preoperative chemotherapy,drug,0,0,NA,1
+NCT03848182,0,2019,2,NA,0,0,1,0,DRUG,1,unknown,2,1,0,0,gemcitabine,drug,67,21,0.44,0
+NCT03859869,0,2019,4,NA,0,0,1,0,DRUG,0,big_pharma,0,0,NA,0,pancrelipase,drug,2,2,0,0
+NCT03890198,0,2019,0.5,NA,0,0,1,0,BIOLOGICAL,0,academic,1,1,NA,0,lcar c182a cells,biological,0,0,NA,1
+NCT03891979,0,2019,4,NA,0,0,1,0,DRUG,0,unknown,6,3,0,0,pembrolizumab,drug,5,5,0.667,0
+NCT03908333,0,2019,1,NA,0,0,1,0,DRUG,0,unknown,4,3,NA,0,ascorbic acid,drug,1,1,0,0
+NCT03943667,1,2019,3,NA,0,0,1,0,DRUG,0,unknown,5,2,1,0,gemcitabine,drug,67,21,0.44,0
+NCT03956056,0,2019,1,NA,0,0,1,0,BIOLOGICAL,1,academic,8,5,0.2,0,neoantigen peptide vaccine,biological,0,0,NA,1
+NCT03974854,0,2019,2,NA,0,0,1,0,DRUG,0,academic,2,2,NA,0,xeloxiri 3,drug,0,0,NA,1
+NCT03977272,1,2019,2,NA,0,0,1,0,DRUG,1,academic,2,2,NA,0,combination drug,drug,0,0,NA,1
+NCT03979066,0,2019,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,atezolizumab,drug,0,0,NA,1
+NCT03982446,1,2019,NA,NA,0,0,1,0,GENETIC,0,unknown,2,1,NA,0,mutations,genetic,0,0,NA,1
+NCT04037241,0,2019,2,NA,0,0,NA,0,BIOLOGICAL,1,biotech,0,0,NA,0,anti cea car t cells,biological,0,0,NA,1
+NCT04045730,0,2019,2,NA,0,0,NA,0,DRUG,0,academic,4,3,0,0,gemcitabine,drug,67,21,0.44,0
+NCT04046887,0,2019,1,NA,0,0,1,0,DRUG,0,unknown,1,1,0,0,lonsurf,drug,0,0,NA,1
+NCT04058964,0,2019,2,NA,0,0,1,0,BIOLOGICAL,0,academic,26,11,0.5,1,pegylated recombinant human hyaluronidase ph20,biological,0,0,NA,1
+NCT04070313,0,2019,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,s 1,drug,6,2,0.333,0
+NCT04083235,1,2019,3,NA,0,0,18,1,DRUG,0,unknown,1,1,1,0,irinotecan liposomal injection,drug,1,1,NA,0
+NCT04083651,0,2019,2,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,methylnaltrexone bromide,drug,0,0,NA,1
+NCT04090463,0,2019,2,NA,0,0,1,0,RADIATION,0,unknown,3,3,0.667,0,intraoperative radiotherapy,radiation,0,0,NA,1
+NCT04098432,1,2019,1,NA,0,0,1,0,DRUG,1,academic,0,0,NA,0,nivolumab,drug,6,6,0.5,0
+NCT04109495,1,2019,NA,NA,0,0,1,0,OTHER,0,academic,8,7,0,0,smart phone application noom,other,0,0,NA,1
+NCT04123574,0,2019,0.5,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,talabostat mesylate,drug,0,0,NA,1
+NCT04130399,0,2019,2,NA,0,0,1,0,RADIATION,1,academic,3,1,0,0,stereotactic body radiation therapy sbrt,radiation,2,0,0,0
+NCT04131192,0,2019,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,z650,drug,0,0,NA,1
+NCT04133155,1,2019,NA,NA,0,0,1,0,DRUG,0,academic,5,2,1,0,nab paclitaxel plus gemcitabine,drug,1,1,NA,0
+NCT04134468,0,2019,2,NA,0,0,1,0,DRUG,0,academic,13,9,0.167,1,pegvorhyaluronidase alfa,drug,0,0,NA,1
+NCT04136769,0,2019,NA,NA,0,0,1,0,PROCEDURE,0,unknown,0,0,NA,0,visceral debranching,procedure,0,0,NA,1
+NCT04141995,0,2019,2,NA,0,0,1,0,DRUG,0,academic,5,1,1,0,digoxin,drug,0,0,NA,1
+NCT04151719,0,2019,3,NA,0,0,NA,0,DRUG,0,biotech,0,0,NA,0,methylnaltrexone bromide mntx,drug,0,0,NA,1
+NCT04176952,0,2019,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,folfox a,drug,0,0,NA,1
+NCT04193904,0,2019,1,NA,0,0,1,0,DRUG,1,biotech,0,0,NA,0,mrx0518,drug,0,0,NA,1
+NCT04203641,0,2019,1,NA,0,0,1,0,BIOLOGICAL,1,biotech,0,0,NA,0,l dos47,biological,0,0,NA,1
+NCT04212026,0,2019,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,nivolumab,drug,6,6,0.5,0
+NCT04228601,1,2020,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,fluzoparib,drug,0,0,NA,1
+NCT04229004,1,2019,3,NA,0,1,1,0,DRUG,0,unknown,0,0,NA,0,gemcitabine combined with nab paclitaxel,drug,0,0,NA,1
+NCT04257955,1,2020,NA,NA,0,0,1,0,BEHAVIORAL,0,unknown,8,0,0.667,0,interview and evaluation of engagement,behavioral,0,0,NA,1
+NCT04258150,0,2020,2,NA,0,0,1,0,DRUG,1,academic,2,2,1,0,nivolumab,drug,9,9,0.5,0
+NCT04262388,0,2020,2,NA,0,0,1,0,BIOLOGICAL,0,academic,11,4,0.5,0,durvalumab,biological,3,2,0,0
+NCT04263948,1,2020,NA,NA,0,0,1,0,DEVICE,0,unknown,0,0,NA,0,picado system internet platform and connected objects,device,0,0,NA,1
+NCT04276909,0,2019,NA,NA,0,0,1,0,COMBINATION_PRODUCT,1,biotech,0,0,NA,0,lum imaging system,combination_product,0,0,NA,1
+NCT04281290,0,2020,1,NA,0,0,1,0,PROCEDURE,0,academic,0,0,NA,0,electrochemotherapy electroporation with cliniporator vitae and chemotherapy drug bleomycin phc 15 e united states pharmacopeia usp,procedure,0,0,NA,1
+NCT04300114,0,2020,3,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,fluzoparib,drug,0,0,NA,1
+NCT04305067,1,2020,NA,NA,0,0,1,0,OTHER,0,academic,0,0,NA,0,exercise,other,0,0,NA,1
+NCT04306861,0,2019,NA,NA,0,0,NA,0,DIAGNOSTIC_TEST,0,academic,2,0,NA,0,mri,diagnostic_test,0,0,NA,1
+NCT04315311,0,2020,4,NA,0,0,NA,0,DRUG,0,big_pharma,1,1,0,0,creon,drug,0,0,NA,1
+NCT04329949,0,2020,3,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,relacorilant 100 mg and 25 mg,drug,0,0,NA,1
+NCT04387071,0,2020,1,NA,0,0,1,0,BIOLOGICAL,1,academic,2,0,0,0,agonistic anti ox40 monoclonal antibody incagn01949,biological,0,0,NA,1
+NCT04390243,0,2020,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,binimetinib,drug,1,1,NA,0
+NCT04390763,0,2020,2,NA,0,0,14,1,BIOLOGICAL,1,big_pharma,1,0,NA,0,nis793,biological,0,0,NA,1
+NCT04400903,0,2020,NA,NA,0,0,1,0,DEVICE,1,academic,4,2,0,0,activity monitor,device,0,0,NA,1
+NCT04406571,1,2020,NA,NA,0,0,1,0,OTHER,0,unknown,0,0,NA,0,data record,other,0,0,NA,1
+NCT04420130,0,2020,NA,NA,0,0,NA,0,DRUG,1,unknown,1,1,NA,0,camrelizumab,drug,0,0,NA,1
+NCT04429490,1,2020,NA,NA,0,0,1,0,OTHER,0,unknown,0,0,NA,0,adipose tissue sampling during surgery and urine sampling,other,0,0,NA,1
+NCT04476537,0,2020,NA,NA,0,0,1,0,DEVICE,0,academic,10,1,0,0,oncotreat,device,0,0,NA,1
+NCT04524702,1,2020,2,NA,0,0,1,0,DRUG,0,academic,3,2,1,0,gemcitabine,drug,73,24,0.429,0
+NCT04536077,0,2020,2,NA,0,0,1,0,DRUG,1,academic,11,7,0.167,0,cdx 301,drug,0,0,NA,1
+NCT04542291,1,2020,1,NA,0,0,1,0,DRUG,1,academic,11,7,0.167,0,dapagliflozin,drug,0,0,NA,1
+NCT04560270,1,2020,NA,NA,0,0,NA,0,DIAGNOSTIC_TEST,0,academic,2,2,0.5,0,blood samples,diagnostic_test,2,2,NA,0
+NCT04565327,0,2020,2,NA,0,0,1,0,DRUG,1,unknown,0,0,NA,0,hyperpolarized carbon c 13 pyruvate,drug,0,0,NA,1
+NCT04592861,0,2020,3,NA,0,0,1,0,RADIATION,1,unknown,3,2,0,0,carbon ion rt,radiation,0,0,NA,1
+NCT04603586,1,2020,NA,NA,0,0,1,0,RADIATION,1,academic,10,10,1,0,sbrt,radiation,2,2,0.5,0
+NCT04617067,1,2020,2,NA,0,0,1,0,DRUG,0,unknown,2,0,NA,0,paricalcitol,drug,2,1,0,0
+NCT04631445,1,2020,NA,NA,0,0,1,0,OTHER,0,unknown,1,0,NA,0,ketogenic diet,other,1,0,0,0
+NCT04637698,0,2020,1,NA,0,0,1,0,BIOLOGICAL,0,biotech,0,0,NA,0,oh2 injection,biological,0,0,NA,1
+NCT04643405,0,2020,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,apg 1387 for injection,drug,0,0,NA,1
+NCT04698915,0,2021,2,NA,0,0,4,1,DRUG,0,biotech,1,1,1,0,drug gc4711,drug,0,0,NA,1
+NCT04700488,0,2021,NA,NA,0,0,1,0,DIAGNOSTIC_TEST,0,academic,1,0,NA,0,6d mri,diagnostic_test,0,0,NA,1
+NCT04755036,1,2021,NA,NA,0,0,1,0,OTHER,0,academic,0,0,NA,0,survey and case vignette,other,0,0,NA,1
+NCT04796948,1,2021,1,NA,0,0,1,0,DRUG,0,biotech,4,4,0.5,0,irinotecan liposome oxaliplatin 5 fu fluorouracil injection lv calcium folinate injection,drug,0,0,NA,1
+NCT04807972,0,2021,1,NA,0,0,6,1,DRUG,0,big_pharma,2,2,0,0,abbv 927,drug,0,0,NA,1
+NCT04809766,0,2021,1,NA,0,0,1,0,BIOLOGICAL,1,academic,0,0,NA,0,autologous mesothelin specific tcr t cells,biological,0,0,NA,1
+NCT04821219,0,2021,NA,NA,0,0,NA,0,OTHER,0,academic,14,6,0.333,1,treatment prediction pdt platform,other,0,0,NA,1
+NCT04844970,0,2021,2,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,anamorelin hydrochloride,drug,0,0,NA,1
+NCT04870034,0,2021,0.5,NA,0,0,1,0,DRUG,1,academic,4,0,0,0,binimetinib,drug,2,2,0,0
+NCT04953962,1,2021,2,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,cbp501 16,drug,0,0,NA,1
+NCT04983407,0,2021,1,NA,0,0,1,0,DRUG,0,biotech,0,0,NA,0,batiraxcept,drug,0,0,NA,1
+NCT05023291,0,2020,NA,NA,0,0,1,0,DIAGNOSTIC_TEST,0,academic,1,0,NA,0,positron emissie tomografie computer tomografie,diagnostic_test,0,0,NA,1
+NCT05025371,1,2021,NA,NA,0,0,1,0,OTHER,0,academic,1,1,NA,0,systemic immune inflammatory markers,other,0,0,NA,1
+NCT05074589,1,2021,3,NA,0,0,1,0,DRUG,0,biotech,4,4,0.5,0,irinotecan liposome 5 fluorouracil leucovorin,drug,0,0,NA,1
+NCT05114213,0,2021,2,NA,0,0,2,1,RADIATION,1,academic,3,2,NA,0,sbrt,radiation,4,3,0.667,0
+NCT05116917,0,2021,2,NA,0,0,1,0,DRUG,1,academic,4,4,0.667,0,nivolumab,drug,12,12,0.4,0
+NCT05139199,1,2021,NA,NA,0,0,1,0,BEHAVIORAL,0,academic,1,0,NA,0,auricular point acupressure group,behavioral,0,0,NA,1
+NCT05188586,0,2021,NA,NA,0,0,1,0,OTHER,0,unknown,0,0,NA,0,mri imaging,other,0,0,NA,1
+NCT05239182,0,2022,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,9 ing 41,drug,0,0,NA,1
+NCT05289830,0,2022,2,NA,0,0,1,0,DRUG,1,academic,10,0,0.2,0,escitalopram,drug,0,0,NA,1
+NCT05325281,0,2022,1,NA,0,0,1,0,DRUG,1,unknown,5,3,0,0,cpi 613 dose level 1 0 250 mg m 2,drug,0,0,NA,1
+NCT05350384,1,2022,NA,NA,0,0,1,0,DRUG,0,academic,0,0,NA,0,methylprednisolone,drug,0,0,NA,1
+NCT05360264,0,2022,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,decitabine 50 mg dacogen,drug,0,0,NA,1
+NCT05360745,0,2022,NA,NA,0,0,NA,0,DIETARY_SUPPLEMENT,0,unknown,0,0,NA,0,aracomplex,dietary_supplement,0,0,NA,1
+NCT05379907,0,2022,NA,NA,0,0,1,0,OTHER,0,unknown,0,0,NA,0,signatera ctdna testing,other,0,0,NA,1
+NCT05380557,0,2022,NA,NA,0,0,1,0,DIAGNOSTIC_TEST,0,biotech,0,0,NA,0,germline genetic testing,diagnostic_test,0,0,NA,1
+NCT05417386,0,2022,1,NA,0,0,1,0,DRUG,1,unknown,1,1,NA,0,folfirinox,drug,18,8,0.286,0
+NCT05435053,0,2022,2,NA,0,0,1,0,DRUG,1,unknown,0,0,NA,0,nivolumab,drug,14,12,0.333,0
+NCT05442749,0,2022,2,NA,0,0,1,0,DRUG,0,academic,1,1,NA,0,niraparib,drug,2,2,NA,0
+NCT05481463,1,2022,2,NA,0,0,1,0,DRUG,0,academic,2,2,NA,0,surufatinib,drug,0,0,NA,1
+NCT05483257,1,2022,NA,NA,0,0,1,0,DEVICE,0,unknown,0,0,NA,0,multigene panel for next generation sequencing,device,0,0,NA,1
+NCT05484011,0,2022,1,NA,0,0,1,0,BIOLOGICAL,0,biotech,0,0,NA,0,odetiglucan,biological,0,0,NA,1
+NCT05493995,1,2022,2,NA,0,0,1,0,DRUG,0,academic,2,1,NA,0,penpulimab,drug,0,0,NA,1
+NCT05494866,0,2022,1,NA,0,0,1,0,DRUG,0,academic,3,0,0.667,0,cobicistat oral tablet,drug,0,0,NA,1
+NCT05525286,0,2021,1,NA,0,0,5,1,DRUG,1,biotech,0,0,NA,0,sot102,drug,0,0,NA,1
+NCT05546411,0,2022,2,NA,0,0,1,0,DRUG,1,unknown,1,1,NA,0,mfolfirinox,drug,7,3,0.75,0
+NCT05631574,0,2022,1,NA,0,0,2,1,DRUG,0,biotech,0,0,NA,0,bmf 219,drug,0,0,NA,1
+NCT05634525,0,2022,1,NA,0,0,1,0,DRUG,0,academic,33,12,0.455,1,mrtx849,drug,0,0,NA,1
+NCT05657418,0,2022,1,NA,0,0,1,0,DRUG,1,biotech,0,0,NA,0,js107,drug,0,0,NA,1
+NCT05702385,0,2023,NA,NA,0,0,1,0,OTHER,0,biotech,0,0,NA,0,educational materials for a new diagnostic test,other,0,0,NA,1
+NCT05841706,0,2023,0.5,NA,0,0,1,0,BIOLOGICAL,1,academic,5,1,0,0,arm i packed red blood cell transfusion hgb 7 g dl,biological,0,0,NA,1
+NCT05861336,0,2023,2,NA,0,0,1,0,DRUG,1,unknown,2,0,1,0,losartan,drug,0,0,NA,1
+NCT05884463,1,2023,NA,NA,0,0,1,0,DRUG,0,academic,5,3,1,0,18f fapi,drug,0,0,NA,1
+NCT06017323,0,2023,1,NA,0,0,1,0,DRUG,0,academic,8,3,0,0,gemcitabine,drug,79,20,0.448,0
+NCT06054308,0,2023,NA,NA,0,0,1,0,OTHER,0,academic,1,0,0,0,msln cart,other,0,0,NA,1
+NCT06069778,0,2023,1,NA,0,0,5,1,DRUG,0,unknown,0,0,NA,0,bnt321 0 5 mg kg,drug,0,0,NA,1
+NCT06110598,0,2023,2,NA,0,0,1,0,DRUG,0,academic,12,2,0.167,0,capecitabine,drug,27,2,0.625,0
+NCT06122480,0,2023,NA,NA,0,0,1,0,PROCEDURE,0,academic,32,7,0.583,1,surgery,procedure,0,0,NA,1
+NCT06164691,0,2023,NA,NA,0,0,1,0,DEVICE,1,unknown,0,0,NA,0,blue light,device,0,0,NA,1
+NCT06199466,0,2023,1,NA,0,0,1,0,DRUG,0,academic,37,14,0.417,1,gemcitabine,drug,79,20,0.448,0
+NCT06199752,1,2023,4,NA,0,0,1,0,DIETARY_SUPPLEMENT,0,academic,0,0,NA,0,probiotic agent 25 billion cfu nowfoods usa inulin capsules 1000mg herbamama usa,dietary_supplement,0,0,NA,1
+NCT06206876,0,2023,1,NA,0,0,1,0,PROCEDURE,1,academic,5,1,0,0,biopsy,procedure,6,4,NA,0
+NCT06341725,0,2024,NA,NA,0,0,1,0,OTHER,0,unknown,0,0,NA,0,malignant lymph nodes,other,0,0,NA,1
+NCT06344299,1,2024,NA,NA,0,0,1,0,OTHER,0,academic,36,25,NA,1,potential predictors,other,0,0,NA,1
+NCT06378580,1,2024,NA,NA,0,0,1,0,DRUG,0,unknown,1,1,NA,0,surufatinib combine immune checkpoint inhibitor,drug,0,0,NA,1
+NCT06398587,0,2024,2,NA,0,0,1,0,DRUG,1,academic,7,4,0,0,onvansertib,drug,1,1,NA,0
+NCT06498518,0,2024,2,NA,0,0,1,0,DRUG,0,unknown,0,0,NA,0,imm 101 pembrolizumab gemcitabine,drug,0,0,NA,1
+NCT06518538,0,2024,2,NA,0,0,1,0,DRUG,0,biotech,1,0,0,0,cpi 613 modified folfirinox,drug,0,0,NA,1
+NCT06528093,0,2024,1,NA,0,0,6,1,DRUG,0,unknown,3,1,0,0,bi 765883,drug,0,0,NA,1
+NCT06592664,0,2024,1,NA,0,0,NA,0,DRUG,0,biotech,1,0,1,0,certepetide,drug,0,0,NA,1
+NCT06626256,0,2024,1,NA,0,0,NA,0,BIOLOGICAL,1,academic,9,2,0,0,aldesleukin,biological,1,0,1,0
+NCT06659237,1,2024,NA,NA,0,0,1,0,DIAGNOSTIC_TEST,0,academic,17,13,NA,1,16s rrna or shotgun metagenomics,diagnostic_test,0,0,NA,1
+NCT06760234,1,2024,NA,NA,0,0,1,0,DIAGNOSTIC_TEST,0,academic,11,4,0,0,no interventions,diagnostic_test,1,1,NA,0
+NCT07026916,0,2025,2,NA,0,0,NA,0,DRUG,0,biotech,0,0,NA,0,gfh375,drug,0,0,NA,1
+NCT07057895,1,2025,NA,NA,0,0,1,0,DIAGNOSTIC_TEST,0,academic,0,0,NA,0,global leadership initiative on malnutrition glim criteria assessment,diagnostic_test,0,0,NA,1

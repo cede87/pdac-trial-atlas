@@ -3,7 +3,7 @@ An open, evidence-graded atlas of pancreatic ductal adenocarcinoma (PDAC) clinic
 
 ## Version
 
-Current release: **v1.5**
+Current release: **v1.6**
 
 ## Disclaimer
 
@@ -75,14 +75,24 @@ Recommended run modes:
 - Full publication re-index (occasional deep refresh):
   - `PYTHONPATH=. PUBMED_PUBLICATION_MODE=full python3 scripts/ingest_clinicaltrials.py`
 
-One-command dataset release build (CSV + Parquet + schema + checksums + zip):
+Ingestion persistence controls (optional):
+- `INGEST_RESUME=1` resume from saved checkpoints (default on)
+- `INGEST_RESET_CHECKPOINTS=1` clear checkpoints before running
+- `INGEST_COMMIT_EVERY=200` commit every N rows to persist incremental progress
+  - Checkpoints are stored per source (CT.gov default token, CTIS/EUCTR per term page).
+
+Dataset release (Parquet + schema + checksums from existing CSV + yearly metrics CSV already present):
 - `./scripts/release_dataset.sh`
 - Optional controls:
   - `RUN_FULL_INDEX=1` (default) or `0`
   - `RUN_TESTS=1` (default) or `0`
   - `RUN_QA=1` (default) or `0`
-  - `DATASET_VERSION=1.5`
-- Note: generated dataset artifacts (`dataset/README.md`, `dataset/schema.json`, CSV/Parquet, checksums, zip) are git-ignored and produced per release run.
+  - `DATASET_VERSION=1.6`
+
+ClinicalTrials.gov controls (optional):
+- `CTGOV_PROGRESS_EVERY=1` print page-level progress (set `0` to disable)
+- `CTGOV_MAX_EMPTY_PAGES=10` autostop after N consecutive pages with 0 PDAC matches
+- `CTGOV_STALL_SECONDS=900` autostop if no new PDAC matches for N seconds
 
 CTIS controls (optional):
 - `INGEST_CTIS=0` skip CTIS for a run
@@ -90,21 +100,28 @@ CTIS controls (optional):
 - `CTIS_MEDICAL_CONDITION=pancreatic` to force a single CTIS medical condition term
 - `CTIS_MAX_OVERVIEW=200` limit scanned overview rows
 - `CTIS_MAX_TRIALS=100` limit normalized CTIS trials kept
+- `CTIS_PAGE_SIZE=100` overview page size
+- `CTIS_DETAIL_WORKERS=4` parallel CTIS detail fetch workers
+- `CTIS_PROGRESS_EVERY_PAGES=1` print overview page progress (set `0` to disable)
+- `CTIS_PROGRESS_EVERY_DETAILS=25` print detail progress every N trials
+- `CTIS_STALL_SECONDS=900` autostop if no new PDAC matches for N seconds
 
 ClinicalTrials.gov controls (optional):
 - `INGEST_CTGOV=0` skip ClinicalTrials.gov ingestion for a run
 
 EUCTR (legacy EU register) controls (optional):
 - `INGEST_EUCTR=0` skip EUCTR ingestion for a run
-- `EUCTR_QUERY_TERMS=pancreatic,pancreas,pdac,pancreatic cancer` to set custom EUCTR search terms
+- `EUCTR_QUERY_TERMS=pancreatic,pancreas` to set custom EUCTR search terms
 - `EUCTR_MAX_PAGES=50` limit fetched EUCTR result pages per term
 - `EUCTR_MAX_TRIALS=1000` limit normalized EUCTR trials kept
 - `EUCTR_PAGE_SLEEP=0.25` sleep (seconds) between EUCTR pages to avoid throttling
-- `EUCTR_MAX_WORKERS=1` parallelism across query terms (max useful = number of terms)
-- `EUCTR_STOP_IF_NO_NEW_PAGES=10` stop a term after N consecutive pages add no new EudraCT IDs
+- `EUCTR_WORKERS=3` parallel term workers
+- `EUCTR_PROGRESS_EVERY_PAGES=1` print page-level progress (set `0` to disable)
+- `EUCTR_STALL_SECONDS=900` autostop if no new rows for N seconds
+- `EUCTR_MAX_EMPTY_PAGES=50` autostop after N consecutive pages with 0 PDAC candidates (per term)
+- `EUCTR_MAX_NO_NEW_PAGES=2000` autostop after N consecutive pages with 0 new PDAC candidates (per term)
 - `EUCTR_CACHE=1` enable cached page downloads (set `0` to disable)
 - `EUCTR_CACHE_DIR=/path/to/cache` override cache location (default: `.cache/euctr`)
-- `EUCTR_PROGRESS=1` show per-page progress logs
 
 ### Identifier model (important)
 
@@ -160,7 +177,7 @@ Recommended full local validation flow:
 1. `PYTHONPATH=. python3 scripts/ingest_clinicaltrials.py`
 2. `PYTHONPATH=. python3 -m pytest -q`
 3. `PYTHONPATH=. python3 scripts/qa_report.py --strict --limit 20`
-4. `PYTHONPATH=. python3 scripts/export_to_csv.py`
+4. Export is handled externally; the repo expects `dataset/pdac-trials.csv` to exist.
 
 Deep validation flow (source integrity + overlap + signal checks):
 
@@ -257,11 +274,75 @@ Publication-link confidence rule:
 - Fuzzy title matches (`title_fuzzy`) are treated as full matches only when confidence is `>= PUBMED_FULL_MATCH_MIN_CONFIDENCE` (default: `80`).
 - Non-full fuzzy matches are kept in `trial_publications` for traceability, but are not propagated to trial-level `pubmed_links`, `publication_date`, `has_results`, or signal fields.
 
+## ML-ready extension (v1.6)
+
+To support predictive modeling, temporal trend analysis, and research-gap detection, v1.6 promotes the **ML-ready dataset as the canonical export** and stores it in SQLite for the UI:
+
+- `dataset/pdac-trials.csv` (ML-ready, one row per unique trial, `trial_uid` primary key)
+- `dataset/pdac_yearly_metrics.csv` (yearly aggregates)
+- `dataset/pdac_trials_modeling_view.csv` (pre-start, modeling-safe feature subset)
+- `dataset/pdac_trials_modeling_view_clean.csv` (label-complete, filtered modeling view)
+- (Optional) data-quality report can be generated by setting `WRITE_QUALITY=1` when exporting.
+
+### Baseline temporal model (v1.6)
+
+A logistic regression baseline is reported in `baseline_temporal_model_v1.6.txt`:
+- Temporal split: train `start_year <= 2017`, test `start_year >= 2018`
+- Features: pre-start only (categorical one-hot + standardized numeric + binary flags)
+- Evaluation: ROC-AUC, Accuracy, Precision, Recall, F1, confusion matrix
+
+This is **diagnostic only** (no model tuning or cross-validation).
+
+The Streamlit UI reads from `clinical_trials_ml_ready` when present (auto-built during ingestion).
+
+### Outcome labels
+
+- `trial_outcome_label`:
+  - `success` → Completed + publication linked
+  - `completed_no_publication` → Completed + no publication
+  - `failure` → Terminated / Withdrawn / Suspended
+  - `ongoing` → Recruiting / Active / Not yet recruiting
+
+**Success definition note:** this is a **proxy label** based on completion status and publication presence, not a ground-truth clinical outcome.
+- `binary_success_label`:
+  - `1` = success
+  - `0` = failure
+  - `NA` = ongoing or insufficient data
+
+### Leakage prevention
+
+Historical features (`sponsor_*`, `target_*`, and literature-gap metrics) are computed **only using trials with start_year < current trial start_year**. No future trials are used to derive these fields.
+
+### Intended ML usage
+
+Predictive models should use features available at trial start (e.g., phase, sponsor attributes, design features, targets). Outcome-driven fields (`has_publication`, `publication_*`, labels) are provided for supervised learning targets and evaluation, not for pre-start prediction.
+
+### Feature temporal scope
+
+`feature_temporal_scope` is exported as a JSON map that labels engineered fields as:
+- `pre_start`: safe to use for prediction at trial start.
+- `post_outcome`: derived from or after outcomes (avoid for prediction).
+- `static`: identifiers/metadata (not predictive).
+
+The modeling-safe export uses **only `pre_start` features**.
+
+### New ML-ready fields (high-level)
+
+- Core IDs: `trial_uid`, `source_count`, `sources_list`
+- Temporal: `start_year`, `completion_year`, `duration_months`, `publication_delay_months`, `is_post_2015`, `years_since_start`
+- Design: `phase_numeric`, `is_phase_1_2_combined`, `num_arms`, `is_randomized`, `is_multi_center`, `country_count`, `is_multi_country`, `intervention_type`, `is_combination_therapy`
+- Sponsor: `sponsor_normalized`, `sponsor_type`, `sponsor_trial_count_total`, `sponsor_trial_count_last_5y`, `is_top_10_sponsor`, `sponsor_success_rate_historical`
+- Target: `target_primary`, `target_category`, `target_trial_count_total`, `target_trial_count_last_5y`, `target_success_rate_historical`, `is_novel_target`
+- Publications: `has_publication`, `publication_year_first`, `journal_impact_flag`
+- Research gaps: `target_literature_count_last_5y`, `target_trial_count_last_5y`, `literature_trial_ratio`, `is_literature_rich_trial_sparse`
+- Context: `llm_context_block`
+
 ## Storage layout
 
 - `clinical_trials` keeps compact fields for fast filtering/sorting (id, status, dates, class, tags, etc.).
 - `clinical_trial_details` stores long-text fields (conditions, interventions, outcomes, eligibility, locations, summaries/descriptions).
 - `trial_publications` stores normalized publication rows (`pmid`, `doi`, `publication_date`, `match_method`, `confidence`, `is_full_match`) and is used to compute publication coverage analytics.
+- `clinical_trials_ml_ready` stores the deduplicated ML-ready table used by the UI and dataset exports.
 - `pubmed_search_cache` and `pubmed_summary_cache` persist PubMed query/results cache so future ingestion runs reuse prior lookups instead of repeating network calls.
 - Both tables are linked 1:1 via `nct_id`.
 - In the dashboard Quick filters bar, `Origin` lets you filter by source (`clinicaltrials.gov`, `ctis`, `euctr`, or merged `clinicaltrials.gov+ctis` / `clinicaltrials.gov+euctr`).

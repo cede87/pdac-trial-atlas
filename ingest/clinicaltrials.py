@@ -18,8 +18,9 @@ OBSERVATIONAL studies are kept but explicitly tagged.
 """
 
 import re
+import time
 import requests
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Iterable
 
 
 BASE_URL = "https://clinicaltrials.gov/api/v2/studies"
@@ -442,15 +443,26 @@ def build_classification_text(protocol: Dict) -> str:
 # MAIN FETCH FUNCTION
 # -------------------------------------------------------------------
 
-def fetch_trials_pancreas(max_records: Optional[int] = None) -> List[Dict]:
+def iter_trials_pancreas(
+    max_records: Optional[int] = None,
+    *,
+    start_page_token: Optional[str] = None,
+    progress_every_pages: int = 1,
+    max_empty_pages: Optional[int] = None,
+    stall_seconds: Optional[float] = None,
+    on_page: Optional[callable] = None,
+) -> Iterable[Dict]:
     params = {
         "query.term": "pancreas",
         "pageSize": 100,
         "format": "json",
     }
 
-    all_studies = []
-    next_page_token = None
+    next_page_token = start_page_token
+    page = 0
+    total_kept = 0
+    empty_pages = 0
+    last_match_time = time.monotonic()
 
     while True:
         if next_page_token:
@@ -466,6 +478,7 @@ def fetch_trials_pancreas(max_records: Optional[int] = None) -> List[Dict]:
         data = resp.json()
         studies = data.get("studies", [])
 
+        kept_this_page = 0
         for s in studies:
             protocol = s.get("protocolSection", {})
             derived = s.get("derivedSection", {})
@@ -529,45 +542,91 @@ def fetch_trials_pancreas(max_records: Optional[int] = None) -> List[Dict]:
             phases = [p for p in (design_mod.get("phases") or []) if p]
             phase_value = "/".join(dict.fromkeys(phases)) if phases else "NA"
 
-            all_studies.append(
-                {
-                    "nct_id": nct_id,
-                    "source": "clinicaltrials.gov",
-                    "secondary_id": "",
-                    "trial_link": f"https://clinicaltrials.gov/study/{nct_id}",
-                    "title": title,
-                    "study_type": study_type,
-                    "phase": phase_value,
-                    "status": status_mod.get("overallStatus", "Unknown"),
-                    "sponsor": sponsor_mod.get("leadSponsor", {}).get("name", "Unknown"),
-                    "pdac_match_reason": pdac_match_reason(title),
-                    "study_design": classification["study_design"],
-                    "therapeutic_class": classification["therapeutic_class"],
-                    "focus_tags": ",".join(classification["focus"]) if classification["focus"] else "",
-                    "admission_date": admission_date,
-                    "last_update_date": last_update_date,
-                    "primary_completion_date": primary_completion_date,
-                    "has_results": has_results,
-                    "results_last_update": result_flags["results_last_update"],
-                    "pubmed_links": "",
-                    "conditions": _join_non_empty(cond_mod.get("conditions", []) or []),
-                    "interventions": interventions,
-                    "intervention_types": intervention_types,
-                    "primary_outcomes": _extract_outcomes(outcomes_mod, "primaryOutcomes"),
-                    "secondary_outcomes": _extract_outcomes(outcomes_mod, "secondaryOutcomes"),
-                    "inclusion_criteria": inclusion_criteria,
-                    "exclusion_criteria": exclusion_criteria,
-                    "locations": _extract_locations(contacts_mod),
-                    "brief_summary": (desc_mod.get("briefSummary") or "").strip(),
-                    "detailed_description": (desc_mod.get("detailedDescription") or "").strip(),
-                }
+            yield {
+                "nct_id": nct_id,
+                "source": "clinicaltrials.gov",
+                "secondary_id": "",
+                "trial_link": f"https://clinicaltrials.gov/study/{nct_id}",
+                "title": title,
+                "study_type": study_type,
+                "phase": phase_value,
+                "status": status_mod.get("overallStatus", "Unknown"),
+                "sponsor": sponsor_mod.get("leadSponsor", {}).get("name", "Unknown"),
+                "pdac_match_reason": pdac_match_reason(title),
+                "study_design": classification["study_design"],
+                "therapeutic_class": classification["therapeutic_class"],
+                "focus_tags": ",".join(classification["focus"]) if classification["focus"] else "",
+                "admission_date": admission_date,
+                "last_update_date": last_update_date,
+                "primary_completion_date": primary_completion_date,
+                "has_results": has_results,
+                "results_last_update": result_flags["results_last_update"],
+                "pubmed_links": "",
+                "conditions": _join_non_empty(cond_mod.get("conditions", []) or []),
+                "interventions": interventions,
+                "intervention_types": intervention_types,
+                "primary_outcomes": _extract_outcomes(outcomes_mod, "primaryOutcomes"),
+                "secondary_outcomes": _extract_outcomes(outcomes_mod, "secondaryOutcomes"),
+                "inclusion_criteria": inclusion_criteria,
+                "exclusion_criteria": exclusion_criteria,
+                "locations": _extract_locations(contacts_mod),
+                "brief_summary": (desc_mod.get("briefSummary") or "").strip(),
+                "detailed_description": (desc_mod.get("detailedDescription") or "").strip(),
+            }
+
+            kept_this_page += 1
+            total_kept += 1
+            if max_records is not None and total_kept >= max_records:
+                return
+
+        page += 1
+        if kept_this_page == 0:
+            empty_pages += 1
+        else:
+            empty_pages = 0
+            last_match_time = time.monotonic()
+
+        if progress_every_pages and page % progress_every_pages == 0:
+            print(
+                f"[CT.gov] page {page}: fetched={len(studies)} kept={kept_this_page}",
+                flush=True,
             )
 
-            if max_records is not None and len(all_studies) >= max_records:
-                return all_studies
+        if max_empty_pages is not None and empty_pages >= max_empty_pages:
+            print(
+                f"[CT.gov] autostop: {empty_pages} consecutive pages with 0 PDAC matches.",
+                flush=True,
+            )
+            break
+
+        if stall_seconds is not None and (time.monotonic() - last_match_time) > stall_seconds:
+            print(
+                f"[CT.gov] autostop: no new PDAC matches for {int(stall_seconds)}s.",
+                flush=True,
+            )
+            break
 
         next_page_token = data.get("nextPageToken")
+        if on_page:
+            on_page(page=page, next_page_token=next_page_token, fetched=len(studies), kept=kept_this_page)
         if not next_page_token:
             break
 
-    return all_studies
+    return
+
+
+def fetch_trials_pancreas(
+    max_records: Optional[int] = None,
+    *,
+    progress_every_pages: int = 1,
+    max_empty_pages: Optional[int] = None,
+    stall_seconds: Optional[float] = None,
+) -> List[Dict]:
+    return list(
+        iter_trials_pancreas(
+            max_records=max_records,
+            progress_every_pages=progress_every_pages,
+            max_empty_pages=max_empty_pages,
+            stall_seconds=stall_seconds,
+        )
+    )

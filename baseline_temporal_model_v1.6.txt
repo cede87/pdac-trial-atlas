@@ -1,0 +1,83 @@
+Dataset Preparation
+===================
+Source: dataset/pdac_trials_modeling_view_clean.csv
+Total rows: 614
+binary_success_label unique values: [0, 1]
+binary_success_label null count: 0
+ongoing/unknown trials in modeling view (from full table): 0
+
+Temporal Split
+==============
+Train size: 435
+Test size: 179
+Train class distribution: {0: 231, 1: 204}
+Test class distribution: {0: 127, 1: 52}
+
+Preprocessing
+=============
+Categorical one-hot: ['sponsor_type', 'target_category', 'intervention_type']
+Binary features (not scaled): ['is_randomized', 'is_multi_center', 'is_multi_country', 'is_combination_therapy', 'is_top_10_sponsor', 'is_novel_target', 'sponsor_no_history_flag', 'target_no_history_flag']
+Continuous standardized: ['sponsor_trial_count_total', 'sponsor_trial_count_last_5y', 'sponsor_success_rate_historical', 'target_trial_count_total', 'target_trial_count_last_5y', 'target_success_rate_historical', 'country_count', 'num_arms', 'phase_numeric']
+Success-rate imputation: null -> 0 with no-history flags
+
+Model
+=====
+LogisticRegression(class_weight=balanced, max_iter=1000, L2)
+
+Evaluation (Test Only)
+======================
+ROC-AUC: 0.48788612961841316
+Accuracy: 0.5251396648044693
+Precision: 0.30120481927710846
+Recall: 0.4807692307692308
+F1-score: 0.37037037037037035
+Confusion matrix: [[69, 58], [27, 25]]
+
+Train/Test AUC
+==============
+Train ROC-AUC: 0.7033040488922843
+Test ROC-AUC: 0.48788612961841316
+Overfitting flag (train - test > 0.1): True
+
+Coefficient Analysis
+====================
+Top 10 positive coefficients:
+  bin__is_multi_country: 1.4098255409427123
+  bin__is_top_10_sponsor: 0.726720540937615
+  num__sponsor_trial_count_total: 0.47377846622711606
+  cat__sponsor_type_unknown: 0.4281279189229707
+  cat__target_category_device: 0.41435305121485344
+  cat__intervention_type_DEVICE: 0.41435305121485344
+  num__target_trial_count_total: 0.32331225726284374
+  bin__is_multi_center: 0.2956374710551137
+  num__target_success_rate_historical: 0.22059174757903519
+  bin__is_randomized: 0.19747685427493394
+Top 10 negative coefficients:
+  num__target_trial_count_last_5y: -0.3427144210712161
+  cat__sponsor_type_academic: -0.33762821394899056
+  cat__intervention_type_DIETARY_SUPPLEMENT: -0.30124437251762487
+  cat__target_category_dietary_supplement: -0.30124437251762487
+  cat__intervention_type_PROCEDURE: -0.23828147058142005
+  cat__target_category_procedure: -0.23828147058142005
+  bin__is_combination_therapy: -0.20605018286579588
+  num__sponsor_trial_count_last_5y: -0.19327069256335053
+  cat__target_category_radiation: -0.1103063946501954
+  cat__intervention_type_RADIATION: -0.1103063946501954
+
+Leakage Check – Historical Features
+==================================
+Computed using prior trials with start_year < current (recomputed from full dataset).
+Sponsor key used: sponsor_normalized
+Sponsor mismatches (total/last5/rate): {'total': 0, 'last5': 0, 'rate': 140, 'checked': 2856}
+Target mismatches (total/last5/rate): {'total': 0, 'last5': 0, 'rate': 111, 'checked': 2856}
+
+Indirect Leakage Check
+======================
+Forbidden columns present: []
+
+Summary Assessment
+==================
+Predictive signal: NO/WEAK
+Above random baseline: NO
+Coefficients interpretable: YES
+Structural red flags: None detected
